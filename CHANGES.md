@@ -1,8 +1,9 @@
 # Changes
 
 ## Repository Changes
-- [ ] Update the iNES header to NES2.0 and match it with the nointro dump.
-- [ ] Add a Makefile rule to produce an xdelta patch. This requires the nointro dump and xdelta3.
+- [x] Update the iNES header to NES2.0 and match it with the nointro dump. (+ SHA1 hashes)
+- [ ] Add a Makefile rule to produce the PAL & NWC versions if possible.
+- [ ] Add a Makefile rule to produce an xdelta patch if possible. This requires the nointro dump and xdelta3.
 
 ## Music/Sound Changes
 - [ ] Use the unused music track on the title screen. (fix noise channel on PAL)
