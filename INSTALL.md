@@ -2,8 +2,8 @@
 
 	sudo apt-get install make gcc bison git python
 	pip install pillow
-	git clone https://github.com/CelestialAmber/TetrisNESDisasm
-	cd TetrisNESDisasm
+	git clone https://github.com/TakuikaNinja/TetrisNESBugfix
+	cd TetrisNESBugfix
 	git submodule update --init
 
 To build `tetris.nes`:
@@ -16,8 +16,8 @@ To build `tetris.nes`:
 In **Terminal**, run:
 	
 	pip install pillow
-	git clone https://github.com/CelestialAmber/TetrisNESDisasm
-	cd TetrisNESDisasm
+	git clone https://github.com/TakuikaNinja/TetrisNESBugfix
+	cd TetrisNESBugfix
 	git submodule update --init
 
 	
@@ -41,8 +41,8 @@ Run setup and leave the default settings. At "Select Packages", choose to instal
 In the **Cygwin terminal**, enter these commands:
 
 	pip install pillow
-	git clone https://github.com/CelestialAmber/TetrisNESDisasm
-	cd TetrisNESDisasm
+	git clone https://github.com/TakuikaNinja/TetrisNESBugfix
+	cd TetrisNESBugfix
 	git submodule update --init
 
 To build `tetris.nes`:
