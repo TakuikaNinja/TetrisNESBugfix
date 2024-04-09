@@ -272,11 +272,7 @@ nmi:    pha
         ldy     #$02
         jsr     generateNextPseudorandomNumber
 .endif
-        lda     #$00
-        sta     ppuScrollX
-        sta     PPUSCROLL
-        sta     ppuScrollY
-        sta     PPUSCROLL
+        jsr     copyCurrentScrollAndCtrlToPPU ; always set PPUSCROLL/PPUCTRL nametable selection bits
         lda     #$01
         sta     verticalBlankingInterval
         jsr     pollControllerButtons
@@ -425,10 +421,6 @@ initRamContinued:
 @continue:
         jmp     @mainLoop
 
-gameMode_playAndEndingHighScore_jmp:
-        jsr     gameMode_playAndEndingHighScore
-        rts
-
 branchOnGameMode:
         lda     gameMode
         jsr     switch_s_plus_2a
@@ -436,8 +428,8 @@ branchOnGameMode:
         .addr   gameMode_titleScreen
         .addr   gameMode_gameTypeMenu
         .addr   gameMode_levelMenu
-        .addr   gameMode_playAndEndingHighScore_jmp
-        .addr   gameMode_playAndEndingHighScore_jmp
+        .addr   gameMode_playAndEndingHighScore
+        .addr   gameMode_playAndEndingHighScore
         .addr   gameMode_startDemo
 gameModeState_updatePlayer1:
         jsr     makePlayer1Active
@@ -517,9 +509,7 @@ gameMode_legalScreen:
         jsr     updateAudio2
         lda     #$00
         sta     renderMode
-.if NWC = 1
-        lda     #$FF
-.else
+.if NWC <> 1
         jsr     updateAudioWaitForNmiAndDisablePpuRendering
         jsr     disableNmi
         lda     #CHR_TITLE_MENU
@@ -534,14 +524,14 @@ gameMode_legalScreen:
         jsr     updateAudioWaitForNmiAndResetOamStaging
         jsr     updateAudioWaitForNmiAndEnablePpuRendering
         jsr     updateAudioWaitForNmiAndResetOamStaging
-        lda     #$00
 .endif
+        lda     #$FF ; always reset OAM with $FF
         ldx     #>oamStaging
         ldy     #>oamStaging
         jsr     memset_page
 .if NWC <> 1
-        lda     #LEGAL_SLEEP_TIME
-        jsr     sleep_for_a_vblanks
+;       lda     #LEGAL_SLEEP_TIME ; skip forced wait as if EYTZAG was applied
+;       jsr     sleep_for_a_vblanks
         lda     #LEGAL_SLEEP_TIME
         sta     generalCounter
 @waitForStartButton:
@@ -592,11 +582,7 @@ gameMode_titleScreen:
         jsr     updateAudioWaitForNmiAndResetOamStaging
         jsr     updateAudioWaitForNmiAndEnablePpuRendering
         jsr     updateAudioWaitForNmiAndResetOamStaging
-.if NWC = 1
-        lda     #$FF
-.else
-        lda     #$00
-.endif
+        lda     #$FF ; always reset OAM with $FF
         ldx     #>oamStaging
         ldy     #>oamStaging
         jsr     memset_page
@@ -816,14 +802,14 @@ gameMode_levelMenu:
         .addr   menu_palette
         jsr     bulkCopyToPpu
         .addr   level_menu_nametable
+        jsr     waitForVBlankAndEnableNmi ; do this...
+        jsr     updateAudioWaitForNmiAndResetOamStaging ; and this first...
         lda     gameType
         bne     @skipTypeBHeightDisplay
-        jsr     bulkCopyToPpu
+        jsr     bulkCopyToPpu ; so that this bulk copy occurs in vblank (avoids rendering palette RAM)
         .addr   height_menu_nametablepalette_patch
 @skipTypeBHeightDisplay:
         jsr     showHighScores
-        jsr     waitForVBlankAndEnableNmi
-        jsr     updateAudioWaitForNmiAndResetOamStaging
         lda     #$00
         sta     PPUSCROLL
         lda     #$00
@@ -1439,10 +1425,10 @@ rngTable:
         .byte   tileEmpty,tile1,tileEmpty,tile2
         .byte   tile3,tile3,tileEmpty,tileEmpty
 gameModeState_updateCountersAndNonPlayerState:
-        lda     #CHR_GAME
-        jsr     changeCHRBank0
-        lda     #CHR_GAME
-        jsr     changeCHRBank1
+;       lda     #CHR_GAME ; why are the CHR banks set every time this runs???
+;       jsr     changeCHRBank0
+;       lda     #CHR_GAME
+;       jsr     changeCHRBank1
         lda     #$00
         sta     oamStagingLength
         inc     player1_fallTimer
@@ -2581,7 +2567,7 @@ render_mode_play_and_demo:
         cmp     #$02
         beq     @renderScore
         ldx     player1_levelNumber
-        lda     levelDisplayTable,x
+        lda     byteToBcdTable,x
         sta     generalCounter
         lda     #$22
         sta     PPUADDR
@@ -2672,11 +2658,6 @@ render_mode_play_and_demo:
 pieceToPpuStatAddr:
         .dbyt   $2186,$21C6,$2206,$2246
         .dbyt   $2286,$22C6,$2306
-levelDisplayTable:
-        .byte   $00,$01,$02,$03,$04,$05,$06,$07
-        .byte   $08,$09,$10,$11,$12,$13,$14,$15
-        .byte   $16,$17,$18,$19,$20,$21,$22,$23
-        .byte   $24,$25,$26,$27,$28,$29
 multBy10Table:
         .byte   $00,$0A,$14,$1E,$28,$32,$3C,$46
         .byte   $50,$5A,$64,$6E,$78,$82,$8C,$96
@@ -2831,12 +2812,9 @@ rightColumns:
         .byte   $05,$06,$07,$08,$09
 ; Set Background palette 2 and Sprite palette 2
 updatePaletteForLevel:
-        lda     player1_levelNumber
-@mod10: cmp     #$0A
-        bmi     @copyPalettes
-        sec
-        sbc     #$0A
-        jmp     @mod10
+        ldx     player1_levelNumber
+        lda     byteToBcdTable,x ; just do a BCD lookup,
+        and     #$0F ; then take the lower byte to get the ones digit...
 
 @copyPalettes:
         asl     a
@@ -2874,24 +2852,6 @@ colorTable:
         .dbyt   $0F30,$2B15,$0F30,$222B
         .dbyt   $0F30,$0016,$0F30,$0513
         .dbyt   $0F30,$1612,$0F30,$2716
-; This increment and clamping is performed in copyPlayfieldRowToVRAM instead of here
-noop_disabledVramRowIncr:
-        rts
-
-        inc     player1_vramRow
-        lda     player1_vramRow
-        cmp     #$14
-        bmi     @player2
-        lda     #$20
-        sta     player1_vramRow
-@player2:
-        inc     player2_vramRow
-        lda     player2_vramRow
-        cmp     #$14
-        bmi     @ret
-        lda     #$20
-        sta     player2_vramRow
-@ret:   rts
 
 playState_spawnNextTetrimino:
         lda     vramRow
@@ -3420,6 +3380,10 @@ L9BD0:  lda     lines+1
         bpl     L9BFB
 .endif
 @incrementLevel:
+        lda     #99 ; cap levelNumber at 99 and prevent level ups at this point
+        cmp     levelNumber
+        beq     L9BFB
+        
         inc     levelNumber
         lda     #$06
         sta     soundEffectSlot1Init
@@ -3740,7 +3704,7 @@ gameMode_startDemo:
         sta     player1_playState
         lda     #$05
         sta     gameMode
-        jmp     gameMode_playAndEndingHighScore_jmp
+        jmp     gameMode_playAndEndingHighScore
 
 ; canon is adjustMusicSpeed
 setMusicTrack:
@@ -3771,7 +3735,7 @@ gameModeState_checkForResetKeyCombo:
 gameModeState_vblankThenRunState2:
         lda     #$02
         sta     gameModeState
-        jsr     noop_disabledVramRowIncr
+;       jsr     noop_disabledVramRowIncr
         rts
 
 playState_unassignOrientationId:
@@ -3801,7 +3765,7 @@ bTypeHeightBonus := generalCounter5
 
 endingAnimationB:
         ldx     player1_levelNumber
-        lda     levelDisplayTable,x
+        lda     byteToBcdTable,x
         and     #$0F
         sta     levelNumber
         lda     #$00
@@ -4103,15 +4067,20 @@ highScoreCharToTile:
         .byte   $5F,$6E,$6F,$FF
 unreferenced_data7:
         .byte   $00,$00,$00,$00
-; maxes out at 49
+        
+; maxes out at 99, used for base 100 encoding
 byteToBcdTable:
-        .byte   $00,$01,$02,$03,$04,$05,$06,$07
-        .byte   $08,$09,$10,$11,$12,$13,$14,$15
-        .byte   $16,$17,$18,$19,$20,$21,$22,$23
-        .byte   $24,$25,$26,$27,$28,$29,$30,$31
-        .byte   $32,$33,$34,$35,$36,$37,$38,$39
-        .byte   $40,$41,$42,$43,$44,$45,$46,$47
-        .byte   $48,$49
+        .byte   $00,$01,$02,$03,$04,$05,$06,$07,$08,$09
+        .byte   $10,$11,$12,$13,$14,$15,$16,$17,$18,$19
+        .byte   $20,$21,$22,$23,$24,$25,$26,$27,$28,$29
+        .byte   $30,$31,$32,$33,$34,$35,$36,$37,$38,$39
+        .byte   $40,$41,$42,$43,$44,$45,$46,$47,$48,$49
+        .byte   $50,$51,$52,$53,$54,$55,$56,$57,$58,$59
+        .byte   $60,$61,$62,$63,$64,$65,$66,$67,$68,$69
+        .byte   $70,$71,$72,$73,$74,$75,$76,$77,$78,$79
+        .byte   $80,$81,$82,$83,$84,$85,$86,$87,$88,$89
+        .byte   $90,$91,$92,$93,$94,$95,$96,$97,$98,$99
+        
 ; Adjusts high score table and handles data entry, if necessary
 handleHighScoreIfNecessary:
         lda     #$00
@@ -4544,7 +4513,7 @@ gameModeState_startButtonHandling:
 
 playState_bTypeGoalCheck:
         lda     gameType
-.if PAL = 1
+.if DEBUG = 1
         beq     checkSelectHeldToAddPoints
         lda     heldButtons_player1
         and     #BUTTON_SELECT
@@ -4580,6 +4549,7 @@ playState_bTypeGoalCheck:
         lda     #$00
         sta     playState
         inc     gameModeState
+        jsr     updateAudioWaitForNmiAndResetOamStaging
         rts
 
 playState_bTypeGoalCheck_ret:
@@ -4606,7 +4576,7 @@ sleep_for_a_vblanks:
         bne     @loop
         rts
 
-.if PAL = 1
+.if DEBUG = 1
 checkSelectHeldToAddPoints:
         lda     heldButtons_player1
         and     #BUTTON_SELECT
@@ -5490,54 +5460,25 @@ copyOamStagingToOam:
         sta     OAMDMA
         rts
 
-pollController_actualRead:
-        ldx     joy1Location
-        inx
-        stx     JOY1
-        dex
-        stx     JOY1
-        ldx     #$08
+; new inlined routine to read 2 controllers + expansion port inputs in a single strobe
+; https://www.nesdev.org/wiki/Controller_reading_code#Alternative_2_Controllers_Read
+pollController:
+        lda     #$01
+        sta     JOY1
+        sta     newlyPressedButtons_player2 ; player 2's buttons double as a ring counter
+        lsr     a
+        sta     JOY1
 @readNextBit:
         lda     JOY1
-        lsr     a
+        and     #%00000011 ; ignore bits other than controller
+        cmp     #$01 ; Set carry if and only if nonzero (merges inputs)
         rol     newlyPressedButtons_player1
-        lsr     a
-        rol     tmp1
         lda     JOY2_APUFC
-        lsr     a
+        and     #%00000011 ; ignore bits other than controller
+        cmp     #$01 ; Set carry if and only if nonzero (merges inputs)
         rol     newlyPressedButtons_player2
-        lsr     a
-        rol     tmp2
-        dex
-        bne     @readNextBit
-        rts
-
-addExpansionPortInputAsControllerInput:
-        lda     tmp1
-        ora     newlyPressedButtons_player1
-        sta     newlyPressedButtons_player1
-        lda     tmp2
-        ora     newlyPressedButtons_player2
-        sta     newlyPressedButtons_player2
-        rts
-
-        jsr     pollController_actualRead
-        beq     diffOldAndNewButtons
-pollController:
-        jsr     pollController_actualRead
-        jsr     addExpansionPortInputAsControllerInput
-        lda     newlyPressedButtons_player1
-        sta     generalCounter2
-        lda     newlyPressedButtons_player2
-        sta     generalCounter3
-        jsr     pollController_actualRead
-        jsr     addExpansionPortInputAsControllerInput
-        lda     newlyPressedButtons_player1
-        and     generalCounter2
-        sta     newlyPressedButtons_player1
-        lda     newlyPressedButtons_player2
-        and     generalCounter3
-        sta     newlyPressedButtons_player2
+        bcc     @readNextBit
+; back to original logic
 diffOldAndNewButtons:
         ldx     #$01
 @diffForPlayer:
@@ -5549,47 +5490,6 @@ diffOldAndNewButtons:
         sty     heldButtons_player1,x
         dex
         bpl     @diffForPlayer
-        rts
-
-unreferenced_func1:
-        jsr     pollController_actualRead
-LABD1:  ldy     newlyPressedButtons_player1
-        lda     newlyPressedButtons_player2
-        pha
-        jsr     pollController_actualRead
-        pla
-        cmp     newlyPressedButtons_player2
-        bne     LABD1
-        cpy     newlyPressedButtons_player1
-        bne     LABD1
-        beq     diffOldAndNewButtons
-        jsr     pollController_actualRead
-        jsr     addExpansionPortInputAsControllerInput
-LABEA:  ldy     newlyPressedButtons_player1
-        lda     newlyPressedButtons_player2
-        pha
-        jsr     pollController_actualRead
-        jsr     addExpansionPortInputAsControllerInput
-        pla
-        cmp     newlyPressedButtons_player2
-        bne     LABEA
-        cpy     newlyPressedButtons_player1
-        bne     LABEA
-        beq     diffOldAndNewButtons
-        jsr     pollController_actualRead
-        lda     tmp1
-        sta     heldButtons_player1
-        lda     tmp2
-        sta     heldButtons_player2
-        ldx     #$03
-LAC0D:  lda     newlyPressedButtons_player1,x
-        tay
-        eor     $F1,x
-        and     newlyPressedButtons_player1,x
-        sta     newlyPressedButtons_player1,x
-        sty     $F1,x
-        dex
-        bpl     LAC0D
         rts
 
 memset_ppu_page_and_more:

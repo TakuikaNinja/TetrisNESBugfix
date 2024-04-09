@@ -10,17 +10,20 @@
 - [ ] Adjust SFX timing on PAL to be closer to NTSC.
 
 ## Bug Fixes & Small Tweaks
-- [ ] Always set PPUCTRL during the NMI handler.
-- [ ] Purge unused controller polling code.
-- [ ] Fix controller polling code to avoid variable conflicts. (may avoid game crash)
-- [ ] Fix level number modulo operation to prevent glitched colour palettes from being used.
-- [ ] Fix level number BCD conversion logic.
+- [X] Always set PPUCTRL during the NMI handler.
+- [x] Purge unused controller polling code.
+- [x] Fix controller polling code to avoid variable conflicts. (may avoid game crash)
+- [x] Fix level number modulo operation to prevent glitched colour palettes from being used.
+- [x] Change level number handling to use base 100 encoding instead of binary, and cap it at 99.
+- [ ] Change line number handling to use base 100 encoding instead of base 10. (cap clears at 999)
 - [ ] Change score handling to use base 100 encoding instead of base 10. (may avoid game crash)
 - [ ] Check for the score cap before adding any points. (may avoid game crash)
 - [ ] Avoid adding zero to the score. (may avoid game crash)
 - [ ] Fix the calculation of pushdown points.
-- [ ] Remove select button debugging functionality on PAL.
+- [ ] Change select button debugging functionality so it uses a compile-time flag called DEBUG.
+- [x] Fix glitched frames on certain screen transitions.
+- [ ] Type-B level bonus properly applies to level 10 and higher.
 
 ## Modernised Quality of Life Mechanics
-- [ ] Copyright screen is always skippable using the start button. (similar to EYTZAG)
+- [x] Copyright/legal screen is always skippable using the start button. (similar to EYTZAG)
 - [ ] Type-A/B ending screens are always skippable using the start button. (similar to NYIPEX)

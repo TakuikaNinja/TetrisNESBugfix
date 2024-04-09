@@ -2,11 +2,11 @@
 
 https://github.com/TakuikaNinja/TetrisNESBugfix
 
-This is a disassembly of Tetris (NES).
+This is a bugfixed version of Tetris (NES).
 
 It builds `tetris.nes` with many bugfixes. See [**CHANGES.md**](CHANGES.md) for a detailed list.
 
-This port is based on: https://github.com/CelestialAmber/TetrisNESDisasm
+This version is based on: https://github.com/CelestialAmber/TetrisNESDisasm
 
 ## Original README (continued)
 
