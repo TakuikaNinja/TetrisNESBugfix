@@ -370,9 +370,9 @@ initRamContinued:
         lda     #$80
         sta     stack+1
         lda     #$35
-        sta     stack+3
+        sta     stack+2
         lda     #$AC
-        sta     stack+4
+        sta     stack+3
         jsr     updateAudioWaitForNmiAndDisablePpuRendering
         jsr     disableNmi
         lda     #$20
@@ -972,7 +972,7 @@ gameMode_levelMenu_handleLevelHeightNavigation:
         bne     @upPressedForHeightSelection
         lda     startLevel
         cmp     #$05
-        bmi     @checkAPressed
+        bcc     @checkAPressed
         sec
         sbc     #$05
         sta     startLevel
@@ -981,7 +981,7 @@ gameMode_levelMenu_handleLevelHeightNavigation:
 @upPressedForHeightSelection:
         lda     startHeight
         cmp     #$03
-        bmi     @checkAPressed
+        bcc     @checkAPressed
         dec     startHeight
         dec     startHeight
         dec     startHeight
@@ -1208,10 +1208,10 @@ gameModeState_initGameState:
         sta     player2_lines
         sta     player2_lines+1
         sta     twoPlayerPieceDelayCounter
-        sta     lineClearStatsByType
-        sta     lineClearStatsByType+1
-        sta     lineClearStatsByType+2
-        sta     lineClearStatsByType+3
+;       sta     lineClearStatsByType
+;       sta     lineClearStatsByType+1
+;       sta     lineClearStatsByType+2
+;       sta     lineClearStatsByType+3
         sta     allegro
         sta     demo_heldButtons
         sta     demo_repeats
@@ -1237,7 +1237,7 @@ gameModeState_initGameState:
         sta     twoPlayerPieceDelayPiece
         lda     gameType
         beq     @skipTypeBInit
-        lda     #$25
+        lda     #25
         sta     player1_lines
         sta     player2_lines
 @skipTypeBInit:
@@ -1614,7 +1614,7 @@ shift_tetrimino:
         inc     autorepeatX
         lda     autorepeatX
         cmp     #DAS_RESET
-        bmi     @ret
+        bcc     @ret
         lda     #DAS_DELAY
         sta     autorepeatX
         jmp     @buttonHeldDown
@@ -2530,9 +2530,10 @@ render_mode_play_and_demo:
         sta     PPUADDR
         lda     #$73
         sta     PPUADDR
-        lda     player1_lines+1
+        lda     player1_lines+1 ; always 0~9
         sta     PPUDATA
-        lda     player1_lines
+        ldx     player1_lines ; convert from base 100 to BCD
+        lda     byteToBcdTable,x
         jsr     twoDigsToPPU
         lda     outOfDateRenderFlags
         and     #~RENDER_LINES
@@ -2544,17 +2545,19 @@ render_mode_play_and_demo:
         sta     PPUADDR
         lda     #$68
         sta     PPUADDR
-        lda     player1_lines+1
+        lda     player1_lines+1 ; always 0~9
         sta     PPUDATA
-        lda     player1_lines
+        ldx     player1_lines ; convert from base 100 to BCD
+        lda     byteToBcdTable,x
         jsr     twoDigsToPPU
         lda     #$20
         sta     PPUADDR
         lda     #$7A
         sta     PPUADDR
-        lda     player2_lines+1
+        lda     player2_lines+1 ; always 0~9
         sta     PPUDATA
-        lda     player2_lines
+        ldx     player2_lines ; convert from base 100 to BCD
+        lda     byteToBcdTable,x
         jsr     twoDigsToPPU
         lda     outOfDateRenderFlags
         and     #~RENDER_LINES
@@ -2730,7 +2733,7 @@ copyPlayfieldRowToVRAM:
         inc     vramRow
         lda     vramRow
         cmp     #$14
-        bmi     @ret
+        bcc     @ret
         lda     #$20
         sta     vramRow
 @ret:   rts
@@ -2802,7 +2805,7 @@ updateLineClearingAnimation:
         inc     rowY
         lda     rowY
         cmp     #$05
-        bmi     @ret
+        bcc     @ret
         inc     playState
 @ret:   rts
 
@@ -2856,7 +2859,7 @@ colorTable:
 playState_spawnNextTetrimino:
         lda     vramRow
         cmp     #$20
-        bmi     @ret
+        bcc     @ret
         lda     numberOfPlayers
         cmp     #$01
         beq     @spawnPiece
@@ -2998,7 +3001,7 @@ incrementPieceStat:
         sta     generalCounter
         and     #$0F
         cmp     #$0A
-        bmi     L9996
+        bcc     L9996
         lda     generalCounter
         clc
         adc     #$06
@@ -3034,7 +3037,7 @@ playState_lockTetrimino:
 @notGameOver:
         lda     vramRow
         cmp     #$20
-        bmi     @ret
+        bcc     @ret
         lda     tetriminoY
         asl     a
         sta     generalCounter
@@ -3214,7 +3217,7 @@ playState_checkForCompletedRows:
         inc     lineIndex
         lda     lineIndex
         cmp     #$04
-        bmi     @ret
+        bcc     @ret
         ldy     completedLines
         lda     garbageLines,y
         clc
@@ -3245,7 +3248,7 @@ playState_receiveGarbage:
         beq     @ret
         lda     vramRow
         cmp     #$20
-        bmi     @delay
+        bcc     @delay
         lda     multBy10Table,y
         sta     generalCounter2
         lda     #$00
@@ -3293,96 +3296,108 @@ playState_updateLinesAndStatistics:
         jmp     addHoldDownPoints
 
 @linesCleared:
-        tax
-        dex
-        lda     lineClearStatsByType,x
-        clc
-        adc     #$01
-        sta     lineClearStatsByType,x
-        and     #$0F
-        cmp     #$0A
-        bmi     @noCarry
-        lda     lineClearStatsByType,x
-        clc
-        adc     #$06
-        sta     lineClearStatsByType,x
-@noCarry:
+;       tax
+;       dex
+;       lda     lineClearStatsByType,x
+;       clc
+;       adc     #$01
+;       sta     lineClearStatsByType,x
+;       and     #$0F
+;       cmp     #$0A
+;       bcc     @noCarry
+;       lda     lineClearStatsByType,x
+;       clc
+;       adc     #$06
+;       sta     lineClearStatsByType,x
+;@noCarry:
         lda     outOfDateRenderFlags
         ora     #RENDER_LINES
         sta     outOfDateRenderFlags
         lda     gameType
         beq     @gameTypeA
-        lda     completedLines
-        sta     generalCounter
+
+; lines -= completedLines using base 100 encoding
         lda     lines
         sec
-        sbc     generalCounter
-        sta     lines
-        bpl     @checkForBorrow
-        lda     #$00
+        sbc     completedLines
+        bpl :+
+        adc #100 ; carry is clear here
+        clc
+:
+        sta     generalCounter
+        lda     lines+1
+        sbc     #0 ; high byte is always 0 since 25 lines is the max
+        bmi     @allLinesCleared ; set lines to 0 if result is negative
+        sta     lines+1
+        lda     generalCounter
         sta     lines
         jmp     addHoldDownPoints
 
-@checkForBorrow:
-        and     #$0F
-        cmp     #$0A
-        bmi     addHoldDownPoints
-        lda     lines
-        sec
-        sbc     #$06
+@allLinesCleared:
+        lda     #0
         sta     lines
-        jmp     addHoldDownPoints
+        sta     lines+1
+        beq     addHoldDownPoints ; [unconditional branch]
 
 @gameTypeA:
         ldx     completedLines
 incrementLines:
+        lda     #9 ; cap line clears at 999
+        cmp     lines+1
+        bne     :+
+        lda     #99
+        cmp     lines
+        beq     @checkLevelUp
+:
         inc     lines
         lda     lines
-        and     #$0F
-        cmp     #$0A
-        bmi     L9BC7
-        lda     lines
-        clc
-        adc     #$06
-        sta     lines
-        and     #$F0
-        cmp     #$A0
-        bcc     L9BC7
-        lda     lines
-        and     #$0F
+        cmp     #100
+        bne     @checkLevelUp
+        lda     #0
         sta     lines
         inc     lines+1
-L9BC7:  lda     lines
+
+; level transition check: check if lineNumber % 10 == 0
+@checkLevelUp:
+        ldy     lines
+        lda     byteToBcdTable,y
         and     #$0F
 .if NWC = 1
-        beq     @incrementLevel
-        cmp     #$05
-        bne     L9BFB
+        beq     @incrementLevel ; NWC: always level up at each multiple of 10 lines
+        cmp     #$05 ; and also at line numbers ending with 5
+        bne     @nextLine
         jmp     @incrementLevel
 .else
-        bne     L9BFB
-        jmp     L9BD0
+        bne     @nextLine ; normal: skip the rest of the transition check if not at a multiple of 10 lines
 
-L9BD0:  lda     lines+1
+; now check if levelNumber < lines/10
+; the easiest approach to dividing by 10 is to do bitshifts on a BCD value
+        ldy     lines+1 ; do a BCD conversion of the line count
+        lda     byteToBcdTable,y
         sta     generalCounter2
-        lda     lines
+        ldy     lines
+        lda     byteToBcdTable,y
         sta     generalCounter
-        lsr     generalCounter2
+        
+; >> 4 and compare to levelNumber
+        lsr     generalCounter2 ; >> 1
         ror     generalCounter
-        lsr     generalCounter2
+        lsr     generalCounter2 ; >> 1
         ror     generalCounter
-        lsr     generalCounter2
+        lsr     generalCounter2 ; >> 1
         ror     generalCounter
-        lsr     generalCounter2
-        ror     generalCounter
-        lda     levelNumber
-        cmp     generalCounter
-        bpl     L9BFB
+        lsr     generalCounter2 ; >> 1
+        ror     generalCounter ; result = lines/10 (e.g. $0690 -> $0069)
+        
+        ldy     levelNumber ; do a BCD conversion of the level number
+        lda     byteToBcdTable,y
+        cmp     generalCounter ; then compare to lines/10
+        bcs     @nextLine ; use carry for unsigned comparison
 .endif
 @incrementLevel:
         lda     #99 ; cap levelNumber at 99 and prevent level ups at this point
         cmp     levelNumber
-        beq     L9BFB
+        beq     @nextLine
         
         inc     levelNumber
         lda     #$06
@@ -3390,15 +3405,16 @@ L9BD0:  lda     lines+1
         lda     outOfDateRenderFlags
         ora     #RENDER_LEVEL
         sta     outOfDateRenderFlags
-L9BFB:  dex
+@nextLine:
+        dex
         bne     incrementLines
 addHoldDownPoints:
 .if NWC = 1
-        sei
+        sei ; lmao, they tried to inhibit IRQs because they knew this was slow
 .endif
         lda     holdDownPoints
-        cmp     #$02
-        bmi     addLineClearPoints
+        cmp     #$02 ; don't points if below 2
+        bcc     addLineClearPoints ; bcc for unsigned comparisons...
         clc
         dec     score
         adc     score
@@ -3413,17 +3429,16 @@ addHoldDownPoints:
 L9C18:  lda     score
         and     #$F0
         cmp     #$A0
-        bcc     L9C27
+        bcc     addLineClearPoints
         clc
         adc     #$60
         sta     score
-        inc     score+1
-L9C27:  lda     outOfDateRenderFlags
-        ora     #RENDER_SCORE
-        sta     outOfDateRenderFlags
+        inc     score+1 ; this needs to be handled better
 addLineClearPoints:
         lda     #$00
         sta     holdDownPoints
+;       lda     completedLines ; skip adding to score if no lines were cleared (TODO)
+;       beq     @noLines
         lda     levelNumber
         sta     generalCounter
         inc     generalCounter
@@ -3479,6 +3494,7 @@ L9C84:  lda     score+2
         sta     score+2
 L9C94:  dec     generalCounter
         bne     L9C37
+@noLines:
         lda     outOfDateRenderFlags
         ora     #RENDER_SCORE
         sta     outOfDateRenderFlags
@@ -4325,7 +4341,7 @@ highScoreEntryScreen:
         inc     highScoreEntryNameOffsetForLetter
         lda     highScoreEntryNameOffsetForLetter
         cmp     #$06
-        bmi     @checkForBOrLeftPressed
+        bcc     @checkForBOrLeftPressed
         lda     #$00
         sta     highScoreEntryNameOffsetForLetter
 @checkForBOrLeftPressed:
@@ -4383,7 +4399,7 @@ highScoreEntryScreen:
         inc     generalCounter
         lda     generalCounter
         cmp     #$2C
-        bmi     @letterDoesNotOverflow
+        bcc     @letterDoesNotOverflow
         sec
         sbc     #$2C
         sta     generalCounter

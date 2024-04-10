@@ -1,4 +1,5 @@
 *.nes
+*.fds
 *.o
 *.chr
 *.pyc
