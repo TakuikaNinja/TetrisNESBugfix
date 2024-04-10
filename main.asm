@@ -3508,9 +3508,9 @@ addLineClearPoints:
         rts
 
 pointsTableLo:
-        .byte   <40,<100,<300,<1200
+        .byte   40,0,0,0
 pointsTableHi:
-        .byte   >40,>100,>300,>1200
+        .byte   0,1,3,12
         
 updatePlayfield:
         ldx     tetriminoY
