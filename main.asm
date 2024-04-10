@@ -530,7 +530,7 @@ gameMode_legalScreen:
         ldy     #>oamStaging
         jsr     memset_page
 .if NWC <> 1
-;       lda     #LEGAL_SLEEP_TIME ; skip forced wait as if EYTZAG was applied
+;       lda     #LEGAL_SLEEP_TIME ; skip forced wait (as if EYTZAG was applied)
 ;       jsr     sleep_for_a_vblanks
         lda     #LEGAL_SLEEP_TIME
         sta     generalCounter
@@ -714,8 +714,8 @@ L830B:  lda     #$FF
         jsr     setMusicTrack
 @upNotPressed:
         lda     newlyPressedButtons_player1
-        cmp     #BUTTON_START
-        bne     @startNotPressed
+        and     #(BUTTON_START | BUTTON_A)
+        beq     @startNotPressed
         lda     #$02
         sta     soundEffectSlot1Init
 .endif
@@ -1103,11 +1103,14 @@ gameModeState_initGameBackground:
         sta     PPUADDR
         lda     #$B8
         sta     PPUADDR
-        lda     highScoreScoresA
+        ldx     highScoreScoresA
+        lda     byteToBcdTable,x
         jsr     twoDigsToPPU
-        lda     highScoreScoresA+1
+        ldx     highScoreScoresA+1
+        lda     byteToBcdTable,x
         jsr     twoDigsToPPU
-        lda     highScoreScoresA+2
+        ldx     highScoreScoresA+2
+        lda     byteToBcdTable,x
         jsr     twoDigsToPPU
         jmp     gameModeState_initGameBackground_finish
 
@@ -1117,11 +1120,14 @@ gameModeState_initGameBackground:
         sta     PPUADDR
         lda     #$B8
         sta     PPUADDR
-        lda     highScoreScoresB
+        ldx     highScoreScoresB
+        lda     byteToBcdTable,x
         jsr     twoDigsToPPU
-        lda     highScoreScoresB+1
+        ldx     highScoreScoresB+1
+        lda     byteToBcdTable,x
         jsr     twoDigsToPPU
-        lda     highScoreScoresB+2
+        ldx     highScoreScoresB+2
+        lda     byteToBcdTable,x
         jsr     twoDigsToPPU
         ldx     #$00
 @nextPpuAddress:
@@ -2569,14 +2575,12 @@ render_mode_play_and_demo:
         lda     numberOfPlayers
         cmp     #$02
         beq     @renderScore
-        ldx     player1_levelNumber
-        lda     byteToBcdTable,x
-        sta     generalCounter
         lda     #$22
         sta     PPUADDR
         lda     #$BA
         sta     PPUADDR
-        lda     generalCounter
+        ldx     player1_levelNumber
+        lda     byteToBcdTable,x
         jsr     twoDigsToPPU
         jsr     updatePaletteForLevel
         lda     outOfDateRenderFlags
@@ -2593,11 +2597,14 @@ render_mode_play_and_demo:
         sta     PPUADDR
         lda     #$18
         sta     PPUADDR
-        lda     player1_score+2
+        ldx     player1_score+2
+        lda     byteToBcdTable,x
         jsr     twoDigsToPPU
-        lda     player1_score+1
+        ldx     player1_score+1
+        lda     byteToBcdTable,x
         jsr     twoDigsToPPU
-        lda     player1_score
+        ldx     player1_score
+        lda     byteToBcdTable,x
         jsr     twoDigsToPPU
         lda     outOfDateRenderFlags
         and     #~RENDER_SCORE
@@ -3131,10 +3138,10 @@ playState_updateGameOverCurtain:
         cmp     #$02
         beq     @exitGame
         lda     player1_score+2
-        cmp     #$03
+        cmp     #03
         bcc     @checkForStartButton
-        lda     #ENDING_SLEEP_TIME_1
-        jsr     sleep_for_a_vblanks
+;       lda     #ENDING_SLEEP_TIME_1 ; skip forced wait (similar to EYTZAG)
+;       jsr     sleep_for_a_vblanks
         jsr     endingAnimation
         jmp     @exitGame
 
@@ -3413,87 +3420,81 @@ addHoldDownPoints:
         sei ; lmao, they tried to inhibit IRQs because they knew this was slow
 .endif
         lda     holdDownPoints
-        cmp     #$02 ; don't points if below 2
+        cmp     #$02 ; don't add points if below 2
         bcc     addLineClearPoints ; bcc for unsigned comparisons...
         clc
-        dec     score
         adc     score
+        cmp     #100
+        bcc     :+
+        sbc     #100
+        sec
+:
         sta     score
-        and     #$0F
-        cmp     #$0A
-        bcc     L9C18
-        lda     score
-        clc
-        adc     #$06
+        lda     score+1
+        adc     #0
+        cmp     #100
+        bcc     :+
+        sbc     #100
+        sec
+:
+        sta     score+1
+        lda     score+2
+        adc     #0
+        cmp     #100
+        bcc     :+
+        lda     #99
         sta     score
-L9C18:  lda     score
-        and     #$F0
-        cmp     #$A0
-        bcc     addLineClearPoints
-        clc
-        adc     #$60
-        sta     score
-        inc     score+1 ; this needs to be handled better
+        sta     score+1
+:
+        sta     score+2
+        
 addLineClearPoints:
         lda     #$00
         sta     holdDownPoints
-;       lda     completedLines ; skip adding to score if no lines were cleared (TODO)
-;       beq     @noLines
+        lda     completedLines ; skip adding to score if no lines were cleared (TODO)
+        beq     @noLines
+        lda     #99 ; skip adding to score if already maxed out
+        cmp     score+2
+        bne     :+
+        cmp     score+1
+        bne     :+
+        cmp     score
+        bne     :+
+        jmp     @noLines
+:
         lda     levelNumber
         sta     generalCounter
         inc     generalCounter
-L9C37:  lda     completedLines
-        asl     a
-        tax
-        lda     pointsTable,x
+@addLineClearPointsLoop:  
+        ldx     completedLines
+        lda     score
         clc
-        adc     score
+        adc     pointsTableLo-1,x
+        cmp     #100
+        bcc     :+
+        sbc     #100
+        sec
+:
         sta     score
-        cmp     #$A0
-        bcc     L9C4E
-        clc
-        adc     #$60
-        sta     score
-        inc     score+1
-L9C4E:  inx
-        lda     pointsTable,x
-        clc
-        adc     score+1
-        sta     score+1
-        and     #$0F
-        cmp     #$0A
-        bcc     L9C64
         lda     score+1
-        clc
-        adc     #$06
+        adc     pointsTableHi-1,x
+        cmp     #100
+        bcc     :+
+        sbc     #100
+        sec
+:
         sta     score+1
-L9C64:  lda     score+1
-        and     #$F0
-        cmp     #$A0
-        bcc     L9C75
-        lda     score+1
-        clc
-        adc     #$60
-        sta     score+1
-        inc     score+2
-L9C75:  lda     score+2
-        and     #$0F
-        cmp     #$0A
-        bcc     L9C84
         lda     score+2
-        clc
-        adc     #$06
-        sta     score+2
-L9C84:  lda     score+2
-        and     #$F0
-        cmp     #$A0
-        bcc     L9C94
-        lda     #$99
+        adc     #0
+        cmp     #100
+        bcc     :+
+        lda     #99
         sta     score
         sta     score+1
+:
         sta     score+2
-L9C94:  dec     generalCounter
-        bne     L9C37
+        dec     generalCounter
+        bne     @addLineClearPointsLoop
 @noLines:
         lda     outOfDateRenderFlags
         ora     #RENDER_SCORE
@@ -3506,9 +3507,11 @@ L9C94:  dec     generalCounter
 .endif
         rts
 
-pointsTable:
-        .word   $0000,$0040,$0100,$0300
-        .word   $1200
+pointsTableLo:
+        .byte   <40,<100,<300,<1200
+pointsTableHi:
+        .byte   >40,>100,>300,>1200
+        
 updatePlayfield:
         ldx     tetriminoY
         dex
@@ -3780,30 +3783,21 @@ bTypeLevelBonus := generalCounter4
 bTypeHeightBonus := generalCounter5
 
 endingAnimationB:
-        ldx     player1_levelNumber
-        lda     byteToBcdTable,x
-        and     #$0F
-        sta     levelNumber
         lda     #$00
         sta     totalScore+2
         sta     totalScore+1
         sta     totalScore
-        lda     levelNumber
-        asl     a
-        asl     a
-        asl     a
-        asl     a
-        sta     bTypeLevelBonus
+        ldx     player1_levelNumber
+        lda     byteToBcdTable,x
+        sta     levelNumber
+        stx     bTypeLevelBonus
         lda     player1_startHeight
-        asl     a
-        asl     a
-        asl     a
-        asl     a
         sta     bTypeHeightBonus
         jsr     updateAudioWaitForNmiAndDisablePpuRendering
         jsr     disableNmi
         lda     levelNumber
-        cmp     #$09
+        and     #$0F
+        cmp     #9
         bne     @checkPenguinOrOstrichEnding
         ; castle ending for level 9/19
         lda     #CHR_TYPEB_ENDING
@@ -3816,10 +3810,12 @@ endingAnimationB:
 
 @checkPenguinOrOstrichEnding:
         ldx     #CHR_GAME
-        lda     levelNumber
-        cmp     #$02    ; Penguin ending for level 2/12
+        ldy     levelNumber
+        lda     byteToBcdTable,y
+        and     #$0F
+        cmp     #2    ; Penguin ending for level 2/12
         beq     @normalEnding
-        cmp     #$06    ; Ostrich for 6/16
+        cmp     #6    ; Ostrich for 6/16
         beq     @normalEnding
         ldx     #CHR_TYPEA_ENDING
 @normalEnding:
@@ -3860,23 +3856,13 @@ endingAnimationB:
         lda     bTypeLevelBonus
         beq     @checkForHeightBonus
 @addLevelBonus:
-        dec     bTypeLevelBonus
         lda     bTypeLevelBonus
-        and     #$0F
-        cmp     #$0F
-        bne     @noLevelCarry
-        lda     bTypeLevelBonus
-        and     #$F0
-        ora     #$09
-        sta     bTypeLevelBonus
-@noLevelCarry:
-        lda     bTypeLevelBonus
-        jsr     add100Points
+        jsr     add1000Points
         lda     #$01
         sta     soundEffectSlot1Init
         lda     #ENDING_SLEEP_TIME_3
         jsr     render_endingUnskippable
-        lda     bTypeLevelBonus
+        dec     bTypeLevelBonus
         bne     @addLevelBonus
         lda     #ENDING_SLEEP_TIME_2
         jsr     render_endingUnskippable
@@ -3884,23 +3870,13 @@ endingAnimationB:
         lda     bTypeHeightBonus
         beq     @startNotPressed
 @addHeightBonus:
-        dec     bTypeHeightBonus
-        lda     bTypeHeightBonus
-        and     #$0F
-        cmp     #$0F
-        bne     @noHeightCarry
-        lda     bTypeHeightBonus
-        and     #$F0
-        ora     #$09
-        sta     bTypeHeightBonus
-@noHeightCarry:
         lda     bTypeHeightBonus
         jsr     add100Points
         lda     #$01
         sta     soundEffectSlot1Init
         lda     #ENDING_SLEEP_TIME_3
         jsr     render_endingUnskippable
-        lda     bTypeHeightBonus
+        dec     bTypeHeightBonus
         bne     @addHeightBonus
         lda     #$02
         sta     soundEffectSlot1Init
@@ -3922,70 +3898,72 @@ endingAnimationB:
         sta     score+2
         rts
 
+add1000Points:
+        lda     #10
+        .byte   $2c ; BIT absolute opcode, will skip over next 2 bytes
+
 add100Points:
-        lda     #$01
+        lda     #1
         clc
         adc     totalScore+1
+        cmp     #100
+        bcc     :+
+        sbc     #100
+        sec
+:
         sta     totalScore+1
-        and     #$0F
-        cmp     #$0A
-        bcc     L9F76
-        lda     totalScore+1
-        clc
-        adc     #$06
-        sta     totalScore+1
-L9F76:  and     #$F0
-        cmp     #$A0
-        bcc     L9F85
-        lda     totalScore+1
-        clc
-        adc     #$60
-        sta     totalScore+1
-        inc     totalScore+2
-L9F85:  lda     totalScore+2
-        and     #$0F
-        cmp     #$0A
-        bcc     L9F94
         lda     totalScore+2
-        clc
-        adc     #$06
+        adc     #0
+        cmp     #100
+        bcc     :+
+        lda     #99
+        sta     totalScore
+        sta     totalScore+1
+:
         sta     totalScore+2
-L9F94:  rts
+        rts
 
 render_mode_ending_animation:
         lda     #$20
         sta     PPUADDR
         lda     #$8E
         sta     PPUADDR
-        lda     player1_score+2
+        ldx     player1_score+2
+        lda     byteToBcdTable,x
         jsr     twoDigsToPPU
-        lda     player1_score+1
+        ldx     player1_score+1
+        lda     byteToBcdTable,x
         jsr     twoDigsToPPU
-        lda     player1_score
+        ldx     player1_score
+        lda     byteToBcdTable,x
         jsr     twoDigsToPPU
         lda     gameType
         beq     L9FE9
         lda     #$20
         sta     PPUADDR
-        lda     #$B0
+        lda     #$AF
         sta     PPUADDR
-        lda     generalCounter4
+        ldx     bTypeLevelBonus
+        lda     byteToBcdTable,x
         jsr     twoDigsToPPU
         lda     #$20
         sta     PPUADDR
         lda     #$D0
         sta     PPUADDR
-        lda     generalCounter5
+        lda     bTypeHeightBonus ; always 0~5
         jsr     twoDigsToPPU
         lda     #$21
         sta     PPUADDR
         lda     #$2E
         sta     PPUADDR
-        lda     totalScore+2
+        ldx     totalScore+2
+        lda     byteToBcdTable,x
         jsr     twoDigsToPPU
-        lda     totalScore+1
+        ldx     totalScore+1
+        lda     byteToBcdTable,x
         jsr     twoDigsToPPU
-        lda     totalScore
+        ldx     totalScore
+        lda     byteToBcdTable,x
         jsr     twoDigsToPPU
 L9FE9:  ldy     #$00
         sty     PPUSCROLL
@@ -4047,19 +4025,21 @@ showHighScores_real:
         clc
         adc     generalCounter
         tay
-        lda     highScoreScoresA,y
+        ldx     highScoreScoresA,y
+        lda     byteToBcdTable,x
         jsr     twoDigsToPPU
         iny
-        lda     highScoreScoresA,y
+        ldx     highScoreScoresA,y
+        lda     byteToBcdTable,x
         jsr     twoDigsToPPU
         iny
-        lda     highScoreScoresA,y
+        ldx     highScoreScoresA,y
+        lda     byteToBcdTable,x
         jsr     twoDigsToPPU
         lda     #$FF
         sta     PPUDATA
         ldy     generalCounter2
-        lda     highScoreLevels,y
-        tax
+        ldx     highScoreLevels,y
         lda     byteToBcdTable,x
         jsr     twoDigsToPPU
         inc     generalCounter2
@@ -4598,7 +4578,23 @@ checkSelectHeldToAddPoints:
         and     #BUTTON_SELECT
         beq     playState_bTypeGoalCheck_ret
         inc     score+2
+        lda     score+2
+        cmp     #100
+        bne     :+
+        lda     #99
+        sta     score
+        sta     score+1
+        sta     score+2
+:
         inc     player1_score+2
+        lda     player1_score+2
+        cmp     #100
+        bne     :+
+        lda     #99
+        sta     player1_score
+        sta     player1_score+1
+        sta     player1_score+2
+:
         lda     outOfDateRenderFlags
         ora     #RENDER_SCORE
         sta     outOfDateRenderFlags
@@ -4614,12 +4610,13 @@ ending_initTypeBVars:
         lda     #$02
         sta     spriteIndexInOamContentLookup
         lda     levelNumber
+        and     #$0F
+        sta     levelNumber
         cmp     #$09
         bne     @notLevel9
-        lda     player1_startHeight
-        clc
-        adc     #$01
-        sta     ending
+        ldx     player1_startHeight
+        inx ; +1 (unconditional carry)  to skip an unused level 9 ending
+        stx     ending
         jsr     ending_typeBConcertPatchToPpuForHeight
         lda     #$00
         sta     ending
@@ -5168,16 +5165,17 @@ endingAnimationA:
         sta     renderMode
         lda     #$0A
         jsr     setMusicTrack
-        lda     #ENDING_SLEEP_TIME_1
-        jsr     render_endingUnskippable
+;       lda     #ENDING_SLEEP_TIME_1 ; skip forced wait (similar effect to NYIPEX)
+;       jsr     render_endingUnskippable
 @endingSleep:
         jsr     render_ending
         jsr     updateAudioWaitForNmiAndResetOamStaging
+        lda     heldButtons_player1 ; just let the player skip this with the start button held down
+        cmp     #BUTTON_START
+        beq     :+
         lda     ending_customVars
         bne     @endingSleep
-        lda     newlyPressedButtons_player1
-        cmp     #BUTTON_START
-        bne     @endingSleep
+:
         rts
 
 selectEndingScreen:
@@ -5185,22 +5183,22 @@ selectEndingScreen:
         lda     #$00 ; >= 30,000
         sta     ending
         lda     player1_score+2
-        cmp     #$05
+        cmp     #05
         bcc     ending_selected
         lda     #$01 ; >= 50,000
         sta     ending
         lda     player1_score+2
-        cmp     #$07
+        cmp     #07
         bcc     ending_selected
         lda     #$02 ; >= 70,000
         sta     ending
         lda     player1_score+2
-        cmp     #$10
+        cmp     #10
         bcc     ending_selected
         lda     #$03 ; >= 100,000
         sta     ending
         lda     player1_score+2
-        cmp     #$12
+        cmp     #12
         bcc     ending_selected
         lda     #$04 ; >= 120,000
         sta     ending
@@ -5254,16 +5252,14 @@ ending_typeA:
         bcc     LA9FC
         lda     frameCounter
         and     #$01
-        bne     LAA0B
+        bne     LAA10
 LA9FC:  lda     #$03
         sta     soundEffectSlot0Init
         dec     ending_customVars
         lda     ending_customVars
-        cmp     #$80
-        bcs     LAA0B
+        bmi     LAA10
         dec     ending_customVars
-LAA0B:  jmp     LAA10
-
+        rts
 LAA0E:  inc     ending_customVars+1
 LAA10:  rts
 
@@ -5687,23 +5683,23 @@ defaultHighScoresTable:
         .byte  "TONY  " ;$14,$0F,$0E,$19,$2B,$2B
         .byte  "NINTEN" ;$0E,$09,$0E,$14,$05,$0E
         .byte   $00,$00,$00,$00,$00,$00 ;unused fourth name
-        ;High Scores are stored in BCD
-        .byte   $01,$00,$00 ;Game A 1st Entry Score, 10000
-        .byte   $00,$75,$00 ;Game A 2nd Entry Score, 7500
-        .byte   $00,$50,$00 ;Game A 3rd Entry Score, 5000
-        .byte   $00,$00,$00 ;unused fourth score
-        .byte   $00,$20,$00 ;Game B 1st Entry Score, 2000
-        .byte   $00,$10,$00 ;Game B 2nd Entry Score, 1000
-        .byte   $00,$05,$00 ;Game B 3rd Entry Score, 500
-        .byte   $00,$00,$00 ;unused fourth score
-        .byte   $09 ;Game A 1st Entry Level
-        .byte   $05 ;Game A 2nd Entry Level
-        .byte   $00 ;Game A 3nd Entry Level
-        .byte   $00 ;unused fourth level
-        .byte   $09 ;Game B 1st Entry Level
-        .byte   $05 ;Game B 2nd Entry Level
-        .byte   $00 ;Game B 3rd Entry Level
-        .byte   $00 ;unused fourth level
+        ;High Scores are stored in base 100 encoding
+        .byte   1,0,0 ;Game A 1st Entry Score, 10000
+        .byte   0,75,0 ;Game A 2nd Entry Score, 7500
+        .byte   0,50,0 ;Game A 3rd Entry Score, 5000
+        .byte   0,0,0 ;unused fourth score
+        .byte   0,20,0 ;Game B 1st Entry Score, 2000
+        .byte   0,10,0 ;Game B 2nd Entry Score, 1000
+        .byte   0,5,0 ;Game B 3rd Entry Score, 500
+        .byte   0,0,0 ;unused fourth score
+        .byte   9 ;Game A 1st Entry Level
+        .byte   5 ;Game A 2nd Entry Level
+        .byte   0 ;Game A 3nd Entry Level
+        .byte   0 ;unused fourth level
+        .byte   9 ;Game B 1st Entry Level
+        .byte   5 ;Game B 2nd Entry Level
+        .byte   0 ;Game B 3rd Entry Level
+        .byte   0 ;unused fourth level
         .byte   $FF
 
 ;.segment        "legal_screen_nametable": absolute

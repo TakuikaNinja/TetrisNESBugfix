@@ -20,15 +20,15 @@
 - [x] Change level number handling to use base 100 encoding instead of binary. (cap at 99)
 - [x] Change line number handling to use base 100 encoding instead of base 10. (cap clears at 999)
 - [x] Fix the level transition check. (e.g. level 18 start transitions at 190 lines instead of 130)
-- [ ] Change score handling to use base 100 encoding instead of base 10. (may avoid game crash)
-- [ ] Check for the score cap before adding any points. (may avoid game crash)
-- [ ] Avoid adding to the score if no lines were cleared. (may avoid game crash)
-- [ ] Fix the calculation of pushdown points.
+- [x] Change score handling to use base 100 encoding instead of base 10. (may avoid game crash)
+- [x] Check for the score cap before adding any points. (may avoid game crash)
+- [x] Avoid adding to the score if no lines were cleared. (may avoid game crash)
+- [x] Fix the calculation of pushdown points.
 - [x] Change select button debugging functionality so it uses a compile-time flag (`DEBUG`).
 - [x] Fix glitched frames on certain screen transitions.
-- [ ] Type-B level bonus properly applies to level 10 and higher.
+- [x] B-Type level bonus properly applies to level 10 and higher.
 
 ## Modernised Quality of Life Mechanics
 - [x] Copyright/legal screen is always skippable using the start button. (similar to EYTZAG)
-- [ ] Type-A/B ending screens are always skippable using the start button. (better than NYIPEX)
-- [ ] The A button can be used to advance from the type select screen to the level select screen.
+- [x] A-Type ending screen is always skippable using the start button. (similar to NYIPEX)
+- [x] The A button can be used to advance from the type select screen to the level select screen.
