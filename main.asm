@@ -3140,7 +3140,7 @@ playState_updateGameOverCurtain:
         lda     player1_score+2
         cmp     #03
         bcc     @checkForStartButton
-;       lda     #ENDING_SLEEP_TIME_1 ; skip forced wait (similar to EYTZAG)
+;       lda     #ENDING_SLEEP_TIME_1 ; skip forced wait (similar to NYIPEX)
 ;       jsr     sleep_for_a_vblanks
         jsr     endingAnimation
         jmp     @exitGame
@@ -3856,13 +3856,13 @@ endingAnimationB:
         lda     bTypeLevelBonus
         beq     @checkForHeightBonus
 @addLevelBonus:
-        lda     bTypeLevelBonus
+        dec     bTypeLevelBonus
         jsr     add1000Points
         lda     #$01
         sta     soundEffectSlot1Init
         lda     #ENDING_SLEEP_TIME_3
         jsr     render_endingUnskippable
-        dec     bTypeLevelBonus
+        lda     bTypeLevelBonus
         bne     @addLevelBonus
         lda     #ENDING_SLEEP_TIME_2
         jsr     render_endingUnskippable
@@ -3870,13 +3870,13 @@ endingAnimationB:
         lda     bTypeHeightBonus
         beq     @startNotPressed
 @addHeightBonus:
-        lda     bTypeHeightBonus
+        dec     bTypeHeightBonus
         jsr     add100Points
         lda     #$01
         sta     soundEffectSlot1Init
         lda     #ENDING_SLEEP_TIME_3
         jsr     render_endingUnskippable
-        dec     bTypeHeightBonus
+        lda     bTypeHeightBonus
         bne     @addHeightBonus
         lda     #$02
         sta     soundEffectSlot1Init
