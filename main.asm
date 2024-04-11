@@ -839,7 +839,11 @@ gameMode_levelMenu_processPlayer1Navigation:
 .if NWC <> 1
         jsr     gameMode_levelMenu_handleLevelHeightNavigation
 .endif
+.if DEBUG = 1
+        lda     #255 ; allow starting well past the killscreen while debugging
+.else
         lda     startLevel
+.endif
         sta     player1_startLevel
         lda     startHeight
         sta     player1_startHeight
@@ -854,7 +858,7 @@ gameMode_levelMenu_processPlayer1Navigation:
         bne     @startAndANotPressed
         lda     player1_startLevel
         clc
-        adc     #$0A
+        adc     #10
         sta     player1_startLevel
 @startAndANotPressed:
 .endif
@@ -1573,7 +1577,11 @@ drop_tetrimino:
 @ret:   rts
 
 @lookupDropSpeed:
+.if DEBUG = 1
+        lda     #$04 ; make killscreen levels easier while debugging
+.else
         lda     #$01
+.endif
         ldx     levelNumber
         cpx     #29
         bcs     @noTableLookup
@@ -3355,10 +3363,13 @@ incrementLines:
 
 ; level transition check: check if lineNumber % 10 == 0
 @checkLevelUp:
+.if DEBUG = 1
+        jmp     @nextLine ; never level up while debugging
+.endif
         ldy     lines
         lda     byteToBcdTable,y
         and     #$0F
-.if NWC = 1 || DEBUG = 1
+.if NWC = 1
         beq     @incrementLevel ; NWC: always level up at each multiple of 10 lines
         cmp     #$05 ; and also at line numbers ending with 5
         bne     @nextLine
@@ -3405,6 +3416,15 @@ incrementLines:
         dex
         bne     incrementLines
 addHoldDownPoints:
+.if DEBUG = 1
+        lda     currentPpuMask ; enable score calculation profiling while debugging
+.if PAL <> 1
+        ora     #%00100000 ; set red emphasis to show a raster bar
+.else
+        ora     #%01000000 ; set red emphasis to show a raster bar
+.endif
+        sta     PPUMASK
+.endif
 .if NWC = 1
         sei ; lmao, they tried to inhibit IRQs because they knew this was slow
 .endif
@@ -3489,6 +3509,10 @@ addLineClearPoints:
         inc     playState
 .if NWC = 1
         cli
+.endif
+.if DEBUG = 1
+        lda     currentPpuMask ; enable score calculation profiling while debugging
+        sta     PPUMASK ; restore PPUMASK state
 .endif
         rts
 
@@ -5261,9 +5285,18 @@ updateAudioWaitForNmiAndResetOamStaging:
         lda     #$00
         sta     verticalBlankingInterval
         nop
+.if DEBUG = 1
+        lda     currentPpuMask ; enable score calculation profiling while debugging
+        ora     #%10000000 ; set blue emphasis to show a raster bar
+        sta     PPUMASK
+.endif
 @checkForNmi:
         lda     verticalBlankingInterval
         beq     @checkForNmi
+.if DEBUG = 1
+        lda     currentPpuMask ; enable score calculation profiling while debugging
+        sta     PPUMASK ; restore PPUMASK state
+.endif
         lda     #$FF
         ldx     #>oamStaging
         ldy     #>oamStaging

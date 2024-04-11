@@ -25,6 +25,7 @@
 - [x] Avoid adding to the score if no lines were cleared. (may avoid game crash)
 - [x] Fix the calculation of pushdown points.
 - [x] Change select button debugging functionality so it uses a compile-time flag (`DEBUG`).
+- [x] Use `DEBUG` flag to enable score calculation profiling. (easy killscreen access, raster bar display)
 - [x] Fix glitched frames on certain screen transitions.
 - [x] B-Type level bonus properly applies to level 10 and higher.
 
