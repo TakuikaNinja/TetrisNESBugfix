@@ -819,14 +819,10 @@ gameMode_levelMenu:
         lda     #$00
         sta     originalY
         sta     dropSpeed
-@forceStartLevelToRange:
-        lda     player1_startLevel
-        cmp     #$0A
-        bcc     gameMode_levelMenu_processPlayer1Navigation
-        sec
-        sbc     #$0A
+        ldx     player1_startLevel ; force starting level into 0~9 range for the menu
+        lda     byteToBcdTable,x
+        and     #$0F
         sta     player1_startLevel
-        jmp     @forceStartLevelToRange
 
 gameMode_levelMenu_processPlayer1Navigation:
 .endif
@@ -973,7 +969,6 @@ gameMode_levelMenu_handleLevelHeightNavigation:
         lda     startLevel
         cmp     #$05
         bcc     @checkAPressed
-        sec
         sbc     #$05
         sta     startLevel
         jmp     @checkAPressed
@@ -1527,6 +1522,10 @@ drop_tetrimino:
         beq     @incrementAutorepeatY
         lda     #$00
         sta     autorepeatY
+        beq     @playing ; [unconditional branch]
+@incrementAutorepeatY:
+        inc     autorepeatY
+        rts
 @notBeginningOfGame:
         bne     @autorepeating
 @playing:
@@ -1576,19 +1575,15 @@ drop_tetrimino:
 @lookupDropSpeed:
         lda     #$01
         ldx     levelNumber
-        cpx     #$1D
+        cpx     #29
         bcs     @noTableLookup
         lda     framesPerDropTable,x
 @noTableLookup:
         sta     dropSpeed
         lda     fallTimer
         cmp     dropSpeed
-        bpl     @drop
-        jmp     @ret
-
-@incrementAutorepeatY:
-        inc     autorepeatY
-        jmp     @ret
+        bcs     @drop
+        rts
 
 framesPerDropTable:
 .if PAL = 1
@@ -2962,7 +2957,6 @@ pickRandomTetrimino:
         adc     spawnID
 L992A:  cmp     #$07
         bcc     L9934
-        sec
         sbc     #$07
         jmp     L992A
 
@@ -3327,24 +3321,19 @@ playState_updateLinesAndStatistics:
         lda     lines
         sec
         sbc     completedLines
-        bpl :+
-        adc #100 ; carry is clear here
+        bpl     :+
+        adc     #100 ; carry is clear here
         clc
 :
-        sta     generalCounter
+        sta     lines
         lda     lines+1
         sbc     #0 ; high byte is always 0 since 25 lines is the max
-        bmi     @allLinesCleared ; set lines to 0 if result is negative
-        sta     lines+1
-        lda     generalCounter
+        bpl     :+
+        lda     #0 ; set lines to 0 if result is negative
         sta     lines
+:
+        sta     lines+1
         jmp     addHoldDownPoints
-
-@allLinesCleared:
-        lda     #0
-        sta     lines
-        sta     lines+1
-        beq     addHoldDownPoints ; [unconditional branch]
 
 @gameTypeA:
         ldx     completedLines
@@ -3359,7 +3348,7 @@ incrementLines:
         inc     lines
         lda     lines
         cmp     #100
-        bne     @checkLevelUp
+        bcc     @checkLevelUp
         lda     #0
         sta     lines
         inc     lines+1
@@ -3369,7 +3358,7 @@ incrementLines:
         ldy     lines
         lda     byteToBcdTable,y
         and     #$0F
-.if NWC = 1
+.if NWC = 1 || DEBUG = 1
         beq     @incrementLevel ; NWC: always level up at each multiple of 10 lines
         cmp     #$05 ; and also at line numbers ending with 5
         bne     @nextLine
@@ -3378,7 +3367,7 @@ incrementLines:
         bne     @nextLine ; normal: skip the rest of the transition check if not at a multiple of 10 lines
 
 ; now check if levelNumber < lines/10
-; the easiest approach to dividing by 10 is to do bitshifts on a BCD value
+; the easiest approach to dividing a 16-bit base 100 number by 10 is to do bitshifts on its BCD value
         ldy     lines+1 ; do a BCD conversion of the line count
         lda     byteToBcdTable,y
         sta     generalCounter2
@@ -3426,16 +3415,14 @@ addHoldDownPoints:
         adc     score
         cmp     #100
         bcc     :+
-        sbc     #100
-        sec
+        sbc     #100 ; Guaranteed to set carry
 :
         sta     score
         lda     score+1
         adc     #0
         cmp     #100
         bcc     :+
-        sbc     #100
-        sec
+        sbc     #100 ; Guaranteed to set carry
 :
         sta     score+1
         lda     score+2
@@ -3472,16 +3459,14 @@ addLineClearPoints:
         adc     pointsTableLo-1,x
         cmp     #100
         bcc     :+
-        sbc     #100
-        sec
+        sbc     #100 ; Guaranteed to set carry
 :
         sta     score
         lda     score+1
         adc     pointsTableHi-1,x
         cmp     #100
         bcc     :+
-        sbc     #100
-        sec
+        sbc     #100 ; Guaranteed to set carry
 :
         sta     score+1
         lda     score+2
@@ -3908,8 +3893,7 @@ add100Points:
         adc     totalScore+1
         cmp     #100
         bcc     :+
-        sbc     #100
-        sec
+        sbc     #100 ; Guaranteed to set carry
 :
         sta     totalScore+1
         lda     totalScore+2
@@ -4115,11 +4099,10 @@ handleHighScoreIfNecessary:
         inc     highScoreEntryRawPos
         lda     highScoreEntryRawPos
         cmp     #$03
-        beq     @ret
+        beq     @compareWithPos
         cmp     #$07
         beq     @ret
-        jmp     @compareWithPos
-
+        bne     @compareWithPos ; [unconditional branch]
 @ret:   rts
 
 adjustHighScores:
@@ -4380,7 +4363,6 @@ highScoreEntryScreen:
         lda     generalCounter
         cmp     #$2C
         bcc     @letterDoesNotOverflow
-        sec
         sbc     #$2C
         sta     generalCounter
 @letterDoesNotOverflow:
@@ -4580,7 +4562,7 @@ checkSelectHeldToAddPoints:
         inc     score+2
         lda     score+2
         cmp     #100
-        bne     :+
+        bcc     :+
         lda     #99
         sta     score
         sta     score+1
@@ -4589,7 +4571,7 @@ checkSelectHeldToAddPoints:
         inc     player1_score+2
         lda     player1_score+2
         cmp     #100
-        bne     :+
+        bcc     :+
         lda     #99
         sta     player1_score
         sta     player1_score+1
