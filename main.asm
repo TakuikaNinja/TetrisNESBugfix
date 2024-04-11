@@ -1168,6 +1168,8 @@ gameModeState_initGameBackground_finish:
         sta     player1_levelNumber
         lda     player2_startLevel
         sta     player2_levelNumber
+        sta     player1_completedLines ; clear completedLines properly
+        sta     player2_completedLines ; (this prevents the tetris animation from occuring when starting a game)
         inc     gameModeState
         rts
 

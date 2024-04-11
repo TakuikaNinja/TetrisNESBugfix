@@ -28,6 +28,7 @@
 - [x] Use `DEBUG` flag to enable score calculation profiling. (easy killscreen access, raster bar display)
 - [x] Fix glitched frames on certain screen transitions.
 - [x] B-Type level bonus properly applies to level 10 and higher.
+- [ ] Prevent Tetris animation from lingering past the demo sequence/resets.
 
 ## Modernised Quality of Life Mechanics
 - [x] Copyright/legal screen is always skippable using the start button. (similar to EYTZAG)
