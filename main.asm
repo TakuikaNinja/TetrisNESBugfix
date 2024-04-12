@@ -3821,8 +3821,7 @@ endingAnimationB:
 
 @checkPenguinOrOstrichEnding:
         ldx     #CHR_GAME
-        ldy     levelNumber
-        lda     byteToBcdTable,y
+        lda     levelNumber
         and     #$0F
         cmp     #2    ; Penguin ending for level 2/12
         beq     @normalEnding
