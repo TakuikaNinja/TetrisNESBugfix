@@ -3802,7 +3802,12 @@ endingAnimationB:
         lda     byteToBcdTable,x
         sta     levelNumber
         stx     bTypeLevelBonus
-        lda     player1_startHeight
+        ; multiply start height by 10 (%1010)
+        lda     player1_startHeight ; '1'
+        asl     a ; '0'
+        asl     a
+        adc     player1_startHeight ; '1'
+        asl     a ; '0'
         sta     bTypeHeightBonus
         jsr     updateAudioWaitForNmiAndDisablePpuRendering
         jsr     disableNmi
@@ -3959,7 +3964,8 @@ render_mode_ending_animation:
         sta     PPUADDR
         lda     #$D0
         sta     PPUADDR
-        lda     bTypeHeightBonus ; always 0~5
+        ldx     bTypeHeightBonus
+        lda     byteToBcdTable,x
         jsr     twoDigsToPPU
         lda     #$21
         sta     PPUADDR
