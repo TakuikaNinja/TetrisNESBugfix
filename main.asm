@@ -3460,8 +3460,6 @@ addHoldDownPoints:
 addLineClearPoints:
         lda     #$00
         sta     holdDownPoints
-        lda     completedLines ; skip adding to score if no lines were cleared (TODO)
-        beq     @noLines
         lda     #99 ; skip adding to score if already maxed out
         cmp     score+2
         bne     :+
@@ -3471,37 +3469,19 @@ addLineClearPoints:
         bne     :+
         jmp     @noLines
 :
-        lda     levelNumber
+        lda     levelNumber ; convert level number to base 100 (16-bits)
+        jsr     byteToBase100
         sta     generalCounter
-        inc     generalCounter
-@addLineClearPointsLoop:  
-        ldx     completedLines
-        lda     score
-        clc
-        adc     pointsTableLo-1,x
+        stx     generalCounter2
+        inc     generalCounter ; and add 1
+        lda     generalCounter
         cmp     #100
         bcc     :+
-        sbc     #100 ; Guaranteed to set carry
+        lda     #0
+        sta     generalCounter
+        inc     generalCounter2 ; always 0~2
 :
-        sta     score
-        lda     score+1
-        adc     pointsTableHi-1,x
-        cmp     #100
-        bcc     :+
-        sbc     #100 ; Guaranteed to set carry
-:
-        sta     score+1
-        lda     score+2
-        adc     #0
-        cmp     #100
-        bcc     :+
-        lda     #99
-        sta     score
-        sta     score+1
-:
-        sta     score+2
-        dec     generalCounter
-        bne     @addLineClearPointsLoop
+        jsr     calcAndAddLineClearPoints
 @noLines:
         lda     outOfDateRenderFlags
         ora     #RENDER_SCORE
@@ -3518,11 +3498,143 @@ addLineClearPoints:
 .endif
         rts
 
-pointsTableLo:
-        .byte   40,0,0,0
-pointsTableHi:
-        .byte   0,1,3,12
-        
+calcAndAddLineClearPoints:
+		lda     completedLines
+		jsr     switch_s_plus_2a
+		.addr   noLineClears ; immediately exit when no lines are cleared
+		.addr   singleClear
+		.addr   doubleClear
+		.addr   tripleClear
+		.addr   tetrisClear
+
+; Parameter: A = byte to encode
+; Returns base 100 encoding as: X = high byte, A = low byte
+byteToBase100:
+		ldx     #0 ; Init high byte of result
+:
+		cmp     #100 ; 0~99 is valid
+		bcc     noLineClears
+		inx
+		sbc     #100 ; Carry already set
+		bcs     :- ; Carry is guaranteed to be set
+noLineClears:
+		rts
+
+; Parameter: A = BCD value to decode
+; Stores the hexadecimal value in Res
+; Returns the hexadecimal value in A
+; (result is also a valid base 100 value)
+BcdToByte:
+		pha ; save value for later
+		and     #$F0 ; letting x = 10's digit, convert 16x to 10x
+		lsr     a
+		sta     tmp1 ; 16x/2
+		lsr     a
+		lsr     a ; 16x/8
+		adc     tmp1 ; 16x/8 + 16x/2
+		sta     tmp1 ; = 10x
+		pla ; retrieve and add low nybble to result
+		and     #$0F
+		adc     tmp1 ; carry is always clear
+		sta     tmp1
+		rts
+
+; tetris = (level + 1) * 1200
+; just add the triple score 4 times
+tetrisClear:
+        jsr    tripleClear
+        jsr    tripleClear
+        jsr    tripleClear
+        ; fall through to tripleClear for the final call
+
+; triple = (level + 1) * 300
+; just add the double score 3 times
+tripleClear:
+        jsr    doubleClear
+        jsr    doubleClear
+        ; fall through to doubleClear for the final call
+
+; double = (level + 1) * 100
+; trivial in base 100
+doubleClear:
+        lda     score+1
+        clc
+        adc     generalCounter ; add to the mid byte for an easy * 100
+        cmp     #100
+        bcc     :+
+        sbc     #100 ; Guaranteed to set carry
+:
+        sta     score+1
+        lda     score+2
+        adc     generalCounter2
+        cmp     #100
+        bcc     :+
+        lda     #99
+        sta     score
+        sta     score+1
+:
+        sta     score+2
+        rts
+
+; single = (level + 1) * 40
+; but (level + 1) * 10 * 4 is easier thanks to BCD encoding
+singleClear:
+        ldx     generalCounter
+        lda     byteToBcdTable,x
+        sta     generalCounter
+        ldx     generalCounter2
+        lda     byteToBcdTable,x
+        sta     generalCounter2
+        ; << 4 is identical to x10 in BCD
+        asl     generalCounter
+        rol     generalCounter2
+        asl     generalCounter
+        rol     generalCounter2
+        asl     generalCounter
+        rol     generalCounter2
+        asl     generalCounter
+        rol     generalCounter2
+        ; now convert the BCD values back to base 100
+        lda     generalCounter
+        jsr     BcdToByte
+        sta     generalCounter
+        lda     generalCounter2
+        jsr     BcdToByte
+        sta     generalCounter2
+        ; and add the result 4 times
+        jsr     addToScore
+        jsr     addToScore
+        jsr     addToScore
+        ; fall through to addToScore for the final call
+
+; Add the 16-bit base 100 value in generalCounter to the score
+addToScore:
+        lda     score
+        clc
+        adc     generalCounter
+        cmp     #100
+        bcc     :+
+        sbc     #100 ; Guaranteed to set carry
+:
+        sta     score
+        lda     score+1
+        adc     generalCounter2
+        cmp     #100
+        bcc     :+
+        sbc     #100 ; Guaranteed to set carry
+:
+        sta     score+1
+        lda     score+2
+        adc     #0
+        cmp     #100
+        bcc     :+
+        lda     #99
+        sta     score
+        sta     score+1
+:
+        sta     score+2
+        rts
+
 updatePlayfield:
         ldx     tetriminoY
         dex

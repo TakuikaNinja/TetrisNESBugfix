@@ -29,6 +29,11 @@ tetris:= tetris.nes
 CAFLAGS = -g
 LDFLAGS =
 
+DEBUG=0 # Will be overriden by variable set in `make` command line
+ifeq ($(DEBUG),1)
+CAFLAGS += -D DEBUG=1
+endif
+
 compare: $(tetris)
 	$(SHA1SUM) -c tetris.sha1
 
