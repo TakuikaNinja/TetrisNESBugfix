@@ -4242,10 +4242,9 @@ handleHighScoreIfNecessary:
         inc     highScoreEntryRawPos
         lda     highScoreEntryRawPos
         cmp     #$03
-        beq     @compareWithPos
-        cmp     #$07
         beq     @ret
-        bne     @compareWithPos ; [unconditional branch]
+        cmp     #$07
+        bne     @compareWithPos
 @ret:   rts
 
 adjustHighScores:
