@@ -17,7 +17,7 @@
 - [x] Purge unused controller polling code.
 - [x] Purge handling of unused line clear stats.
 - [x] Fix controller polling code to avoid variable conflicts. (avoids game crash)
-- [x] Fix level number modulo operation to prevent glitched colour palettes from being used.
+- [x] Fix and optimise the palette update routine to prevent glitched colour palettes from being used.
 - [x] Change level number handling to use base 100 encoding instead of binary. (cap at 99)
 - [x] Change line number handling to use base 100 encoding instead of base 10. (cap clears at 999)
 - [x] Fix the level transition check. (e.g. level 18 start transitions at 190 lines instead of 130)

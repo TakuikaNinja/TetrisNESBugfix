@@ -839,11 +839,7 @@ gameMode_levelMenu_processPlayer1Navigation:
 .if NWC <> 1
         jsr     gameMode_levelMenu_handleLevelHeightNavigation
 .endif
-.if DEBUG = 1
-        lda     #255 ; allow starting well past the killscreen while debugging
-.else
         lda     startLevel
-.endif
         sta     player1_startLevel
         lda     startHeight
         sta     player1_startHeight
@@ -864,6 +860,10 @@ gameMode_levelMenu_processPlayer1Navigation:
 .endif
         lda     #$00
         sta     gameModeState
+.if DEBUG = 1
+        lda     #255 ; allow starting well past the killscreen while debugging
+        sta     player1_startLevel
+.endif
 .if NWC <> 1
         lda     #$02
         sta     soundEffectSlot1Init
@@ -2584,8 +2584,12 @@ render_mode_play_and_demo:
         sta     PPUADDR
         lda     #$BA
         sta     PPUADDR
+.if DEBUG = 1
+        lda     player1_levelNumber ; use hexadecimal level display in debug mode
+.else
         ldx     player1_levelNumber
         lda     byteToBcdTable,x
+.endif
         jsr     twoDigsToPPU
         jsr     updatePaletteForLevel
         lda     outOfDateRenderFlags
@@ -2830,10 +2834,13 @@ updatePaletteForLevel:
         ldx     player1_levelNumber
         lda     byteToBcdTable,x ; just do a BCD lookup,
         and     #$0F ; then take the lower byte to get the ones digit...
+.if DEBUG = 1
+        cmp     #10 ; but account for base 10 overflow in debug mode since level 255 is being used
+        bcc     @copyPalettes
+        sbc     #10
+.endif
 
 @copyPalettes:
-        asl     a
-        asl     a
         tax
         lda     #$00
         sta     generalCounter
@@ -2844,13 +2851,13 @@ updatePaletteForLevel:
         clc
         adc     generalCounter
         sta     PPUADDR
-        lda     colorTable,x
+        lda     #$0F ; bg
         sta     PPUDATA
-        lda     colorTable+1,x
+        lda     #$30 ; fg
         sta     PPUDATA
-        lda     colorTable+1+1,x
+        lda     colorTable,x ; c3
         sta     PPUDATA
-        lda     colorTable+1+1+1,x
+        lda     colorTable1,x ; c4
         sta     PPUDATA
         lda     generalCounter
         clc
@@ -2860,13 +2867,12 @@ updatePaletteForLevel:
         bne     @copyPalette
         rts
 
-; 4 bytes per level (bg, fg, c3, c4)
+; 2 unique bytes per level (c3, c4)
+; split into 2 tables for faster access
 colorTable:
-        .dbyt   $0F30,$2112,$0F30,$291A
-        .dbyt   $0F30,$2414,$0F30,$2A12
-        .dbyt   $0F30,$2B15,$0F30,$222B
-        .dbyt   $0F30,$0016,$0F30,$0513
-        .dbyt   $0F30,$1612,$0F30,$2716
+        .byte   $21, $29, $24, $2A, $2B, $22, $00, $05, $16, $27
+colorTable1:
+        .byte   $12, $1A, $14, $12, $15, $2B, $16, $13, $12, $16
 
 playState_spawnNextTetrimino:
         lda     vramRow
