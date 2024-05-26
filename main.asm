@@ -402,7 +402,8 @@ initRamContinued:
         sta     frameCounter+1
 @mainLoop:
         jsr     branchOnGameMode
-        cmp     gameModeState
+        lda     gameModeState ; actually load gameModeState when checking it
+        cmp     #$02 ; instead of relying on the contents of A (fixes LRD bug)
         bne     @checkForDemoDataExhaustion
         jsr     updateAudioWaitForNmiAndResetOamStaging
 @checkForDemoDataExhaustion:
@@ -1622,17 +1623,24 @@ shift_tetrimino:
         lda     heldButtons
         and     #BUTTON_LEFT+BUTTON_RIGHT
         beq     @ret
+        cmp     #BUTTON_LEFT+BUTTON_RIGHT
+        beq     @ret
         inc     autorepeatX
         lda     autorepeatX
         cmp     #DAS_RESET
         bcc     @ret
         lda     #DAS_DELAY
         sta     autorepeatX
-        jmp     @buttonHeldDown
+        bne     @buttonHeldDown ; [unconditional branch]
 
 @resetAutorepeatX:
         lda     #$00
         sta     autorepeatX
+        lda     heldButtons
+        and     #BUTTON_LEFT+BUTTON_RIGHT
+        cmp     #BUTTON_LEFT+BUTTON_RIGHT
+        beq     @ret
+        
 @buttonHeldDown:
         lda     heldButtons
         and     #BUTTON_RIGHT

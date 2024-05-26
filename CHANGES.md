@@ -5,7 +5,7 @@
 - [ ] Add a branch for the FDS port if possible.
 - [x] Add a Makefile variable to enable debug features. (`make DEBUG=1`)
 - [ ] Add a Makefile rule to produce the PAL & NWC versions if possible.
-- [ ] Add a Makefile rule to produce an xdelta patch if possible. This requires the nointro dump and xdelta3.
+- [ ] Add a Makefile rule to produce a BPS patch if possible. This requires the nointro dump and flips-linux.
 
 ## Music/Sound Changes
 - [ ] Use the unused music track on the title screen and adjust the demo start timing. (fix noise channel on PAL)
@@ -17,6 +17,8 @@
 - [x] Purge unused controller polling code.
 - [x] Purge handling of unused line clear stats.
 - [x] Fix controller polling code to avoid variable conflicts. (avoids game crash)
+- [x] Fix gameModeState check to prevent unwanted behaviour caused by left+down+right inputs.
+- [x] Nullify left+right inputs when shifting pieces.
 - [x] Fix and optimise the palette update routine to prevent glitched colour palettes from being used.
 - [x] Change level number handling to use base 100 encoding instead of binary. (cap at 99)
 - [x] Change line number handling to use base 100 encoding instead of base 10. (cap clears at 999)
