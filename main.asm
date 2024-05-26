@@ -548,7 +548,8 @@ gameMode_legalScreen:
         rts
 
 gameMode_titleScreen:
-        jsr     updateAudio2
+        lda     #$01
+        jsr     setMusicTrack
         lda     #$00
         sta     renderMode
         sta     $D0
@@ -599,7 +600,7 @@ gameMode_titleScreen:
         cmp     #BUTTON_START
         beq     @startButtonPressed
         lda     frameCounter+1
-        cmp     #$05
+        cmp     #$07 ; adjust timing for title screen music
         beq     @timeout
         jmp     @waitForStartButton
 
@@ -7453,19 +7454,48 @@ noteToWaveTable:
         ; $98: Ab8, Db8
         .dbyt   $0010,$0019
 
+;; (yoinked from Dr. Mario)
+;; Duration of note in frames, according to song bpm
+;; 
+;; Index is as follows:
+;;  0: sixteenth note
+;;  1: eight note
+;;  2: quarter note
+;;  3: half note
+;;  4: whole note
+
+;;  5: dotted quarter note
+;;  6: dotted half note
+;;  7: dotted eight note
+;; 
+;;  8: quarter note triplet     (these 2 not always accurate)
+;;  9: sixteenth note triplet
+;;
+;; 10: thirty-secondth note     (these 2 not always accurate)
+;; 11: sixty-fourth note
+;;
+;; 12 to 15: extra custom durations
 noteDurationTable:
 .if PAL = 1
+; they really shrunk this table, didn't they?
+        ; 300 bpm? (used for type-B jingle)
         .byte   $02,$05,$0A,$14,$28,$0F,$1E,$03
+        ; 300 bpm? (used for music 1 allegro)
         .byte   $02,$04,$08,$10,$20,$0C,$18,$06
-        .byte   $05,$02,$01,$01,$03,$06,$0C,$18
-        .byte   $30,$12,$24,$09,$08,$04,$02,$01
+        .byte   $05,$02,$01,$01
+        ; 250 bpm
+        .byte   $03,$06,$0C,$18,$30,$12,$24,$09
+        .byte   $08,$04,$02,$01
+        ; 187 bpm
         .byte   $04,$08,$10,$20,$40,$18,$30,$0C
-        .byte   $0A,$05,$02,$01,$05,$0A,$14,$28
-        .byte   $50,$1E,$3C,$0F,$0D,$06,$02,$01
+        .byte   $0A,$05,$02,$01
+        ; 150 bpm
+        .byte   $05,$0A,$14,$28,$50,$1E,$3C,$0F
+        .byte   $0D,$06,$02,$01
+        ; 125 bpm
         .byte   $06,$0C,$18,$30,$60,$24,$48,$12
         .byte   $10,$08,$03,$01,$04,$02,$00,$90
 .else
-; 1/16  note, 1/8 note, 1/4 note, 1/2 note, full note, 3/8 note, 3/4 note, 3/16 note
         ; 300 bpm
         .byte   $03,$06,$0C,$18,$30,$12,$24,$09
         .byte   $08,$04,$02,$01
@@ -7505,7 +7535,7 @@ musicDataTableIndex:
 ; Each table entry is written into musicDataNoteTableOffset
 musicDataTable:
 .if PAL = 1
-        .byte   $0A,$2C
+        .byte   $0C,$2C
 .else
         .byte   $0A,$24
 .endif
@@ -7513,13 +7543,17 @@ musicDataTable:
         .addr   music_titleScreen_sq2Script
         .addr   music_titleScreen_triScript
         .addr   music_titleScreen_noiseScript
+.if PAL = 1
+        .byte   $81,$00
+.else      
         .byte   $83,$00
+.endif
         .addr   music_bTypeGoalAchieved_sq1Script
         .addr   music_bTypeGoalAchieved_sq2Script
         .addr   music_bTypeGoalAchieved_triScript
         .addr   music_bTypeGoalAchieved_noiseScript
 .if PAL = 1
-        .byte   $81,$2C
+        .byte   $00,$2C
 .else
         .byte   $81,$24
 .endif
@@ -7528,7 +7562,7 @@ musicDataTable:
         .addr   music_music1_triScript
         .addr   music_music1_noiseScript
 .if PAL = 1
-        .byte   $83,$2C
+        .byte   $81,$2C
 .else
         .byte   $83,$24
 .endif
@@ -7537,7 +7571,7 @@ musicDataTable:
         .addr   music_music2_triScript
         .addr   music_music2_noiseScript
 .if PAL = 1
-        .byte   $81,$2C
+        .byte   $00,$2C
 .else
         .byte   $81,$24
 .endif
@@ -7546,7 +7580,7 @@ musicDataTable:
         .addr   music_music3_triScript
         .addr   LFFFF
 .if PAL = 1
-        .byte   $81,$08
+        .byte   $00,$08
 .else
         .byte   $81,$00
 .endif
@@ -7555,7 +7589,7 @@ musicDataTable:
         .addr   music_music1_triScript
         .addr   music_music1_noiseScript
 .if PAL = 1
-        .byte   $83,$14
+        .byte   $81,$14
 .else
         .byte   $83,$0C
 .endif
@@ -7564,7 +7598,7 @@ musicDataTable:
         .addr   music_music2_triScript
         .addr   music_music2_noiseScript
 .if PAL = 1
-        .byte   $81,$14
+        .byte   $00,$14
 .else
         .byte   $81,$0C
 .endif
@@ -7573,7 +7607,7 @@ musicDataTable:
         .addr   music_music3_triScript
         .addr   LFFFF
 .if PAL = 1
-        .byte   $00,$20
+        .byte   $02,$20
 .else
         .byte   $00,$18
 .endif
@@ -7582,7 +7616,7 @@ musicDataTable:
         .addr   music_congratulations_triScript
         .addr   music_congratulations_noiseScript
 .if PAL = 1
-        .byte   $8F,$2C
+        .byte   $8D,$2C
 .else
         .byte   $8F,$24
 .endif

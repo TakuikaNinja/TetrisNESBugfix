@@ -34,6 +34,11 @@ ifeq ($(DEBUG),1)
 CAFLAGS += -D DEBUG=1
 endif
 
+PAL=0 # Will be overriden by variable set in `make` command line
+ifeq ($(PAL),1)
+CAFLAGS += -D PAL=1
+endif
+
 compare: $(tetris)
 	$(SHA1SUM) -c tetris.sha1
 

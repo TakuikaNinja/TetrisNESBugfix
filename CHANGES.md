@@ -4,12 +4,15 @@
 - [x] Update the iNES header to NES2.0 and match it with the nointro dump. (+ SHA1 hashes)
 - [ ] Add a branch for the FDS port if possible.
 - [x] Add a Makefile variable to enable debug features. (`make DEBUG=1`)
-- [ ] Add a Makefile rule to produce the PAL & NWC versions if possible.
+- [x] Add Makefile variable to produce the PAL version. (`make PAL=1`)
+- [x] Add Makefile variable to produce the NWC version. (`make NWC=1`)
+- [ ] Properly document NWC code.
 - [ ] Add a Makefile rule to produce a BPS patch if possible. This requires the nointro dump and flips-linux.
 
 ## Music/Sound Changes
-- [ ] Use the unused music track on the title screen and adjust the demo start timing. (fix noise channel on PAL)
-- [ ] Adjust pitch table on PAL to be closer to NTSC.
+- [x] Use the unused music track on the title screen and adjust the demo start timing.
+- [ ] Fix the note timing on PAL for the title screen.
+- [x] Adjust music note offests on PAL to be closer to NTSC.
 - [ ] Adjust SFX data on PAL to be closer to NTSC.
 
 ## Bug Fixes & Small Tweaks
