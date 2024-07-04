@@ -6,8 +6,6 @@
 - [x] Add a Makefile variable to enable debug features. (`make DEBUG=1`)
 - [x] Add Makefile variable to produce the PAL version. (`make PAL=1`)
 - [x] Add Makefile variable to produce the NWC version. (`make NWC=1`)
-- [ ] Properly document NWC code.
-- [ ] Add a Makefile rule to produce a BPS patch if possible. This requires the nointro dump and flips-linux.
 
 ## Music/Sound Changes
 - [x] Use the unused music track on the title screen and adjust the demo start timing.

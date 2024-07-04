@@ -3445,45 +3445,24 @@ addHoldDownPoints:
 .if NWC = 1
         sei ; lmao, they tried to inhibit IRQs because they knew this was slow
 .endif
-        lda     holdDownPoints
-        cmp     #$02 ; don't add points if below 2
-        bcc     addLineClearPoints ; bcc for unsigned comparisons...
-        clc
-        adc     score
-        cmp     #100
-        bcc     :+
-        sbc     #100 ; Guaranteed to set carry
-:
-        sta     score
-        lda     score+1
-        adc     #0
-        cmp     #100
-        bcc     :+
-        sbc     #100 ; Guaranteed to set carry
-:
-        sta     score+1
-        lda     score+2
-        adc     #0
-        cmp     #100
-        bcc     :+
-        lda     #99
-        sta     score
-        sta     score+1
-:
-        sta     score+2
-        
-addLineClearPoints:
-        lda     #$00
-        sta     holdDownPoints
         lda     #99 ; skip adding to score if already maxed out
         cmp     score+2
         bne     :+
         cmp     score+1
         bne     :+
         cmp     score
-        bne     :+
-        jmp     @noLines
-:
+        beq     noLines
+: 
+        lda     holdDownPoints
+        cmp     #$02 ; don't add points if below 2
+        bcc     addLineClearPoints ; bcc for unsigned comparisons...
+        
+        sta     generalCounter ; put into generalCounter
+        lda     #$00 ; clear high byte
+        sta     generalCounter2
+        jsr     addToScore
+        
+addLineClearPoints:
         lda     levelNumber ; convert level number to base 100 (16-bits)
         jsr     byteToBase100
         sta     generalCounter
@@ -3497,12 +3476,13 @@ addLineClearPoints:
         inc     generalCounter2 ; always 0~2
 :
         jsr     calcAndAddLineClearPoints
-@noLines:
+noLines:
         lda     outOfDateRenderFlags
         ora     #RENDER_SCORE
         sta     outOfDateRenderFlags
         lda     #$00
         sta     completedLines
+        sta     holdDownPoints
         inc     playState
 .if NWC = 1
         cli
@@ -3554,15 +3534,26 @@ BcdToByte:
 		sta     tmp1
 		rts
 
-; tetris = (level + 1) * 1200
-; just add the triple score 4 times
-tetrisClear:
-        jsr    tripleClear
-        jsr    tripleClear
-        jsr    tripleClear
-        ; fall through to tripleClear for the final call
+; Multiply generalCounter by 2
+Mult2:
+		lda     generalCounter ; double low byte
+		asl     a
+		cmp     #100 ; check for base 100 overflow
+		bcc     :+
+		sbc     #100
+:
+		sta     generalCounter
+		rol     generalCounter2 ; double high byte and add carry
+		rts
 
-; triple = (level + 1) * 300
+; tetris = (level + 1) * 1200 = (level + 1) * 4 * 300
+; just multiply by 4 and then treat it as a triple score
+tetrisClear:
+        jsr    Mult2 ; (level + 1) * 4
+        jsr    Mult2
+        ; then fall through to tripleClear to add to the score
+
+; triple = (level + 1) * 300 = (level + 1) * 100 * 3
 ; just add the double score 3 times
 tripleClear:
         jsr    doubleClear
@@ -3591,9 +3582,10 @@ doubleClear:
         sta     score+2
         rts
 
-; single = (level + 1) * 40
-; but (level + 1) * 10 * 4 is easier thanks to BCD encoding
+; single = (level + 1) * 40 = (level + 1) * 2 * 10 * 2
+; BCD conversion makes this easier
 singleClear:
+		jsr     Mult2 ; (level + 1) * 2
         ldx     generalCounter
         lda     byteToBcdTable,x
         sta     generalCounter
@@ -3616,9 +3608,7 @@ singleClear:
         lda     generalCounter2
         jsr     BcdToByte
         sta     generalCounter2
-        ; and add the result 4 times
-        jsr     addToScore
-        jsr     addToScore
+        ; and add the result 2 times
         jsr     addToScore
         ; fall through to addToScore for the final call
 
