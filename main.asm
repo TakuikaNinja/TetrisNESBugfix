@@ -432,9 +432,10 @@ branchOnGameMode:
         .addr   gameMode_playAndEndingHighScore
         .addr   gameMode_playAndEndingHighScore
         .addr   gameMode_startDemo
+        
 gameModeState_updatePlayer1:
         jsr     makePlayer1Active
-        jsr     branchOnPlayStatePlayer1
+        jsr     branchOnPlayStatePlayer
         jsr     stageSpriteForCurrentPiece
         jsr     savePlayer1State
         jsr     stageSpriteForNextPiece
@@ -446,7 +447,7 @@ gameModeState_updatePlayer2:
         cmp     #$02
         bne     @ret
         jsr     makePlayer2Active
-        jsr     branchOnPlayStatePlayer2
+        jsr     branchOnPlayStatePlayer
         jsr     stageSpriteForCurrentPiece
         jsr     savePlayer2State
 @ret:   inc     gameModeState
@@ -464,7 +465,8 @@ gameMode_playAndEndingHighScore:
         .addr   gameModeState_checkForResetKeyCombo
         .addr   gameModeState_startButtonHandling
         .addr   gameModeState_vblankThenRunState2
-branchOnPlayStatePlayer1:
+        
+branchOnPlayStatePlayer:
         lda     playState
         jsr     switch_s_plus_2a
         .addr   playState_unassignOrientationId
@@ -479,32 +481,11 @@ branchOnPlayStatePlayer1:
         .addr   playState_noop
         .addr   playState_updateGameOverCurtain
         .addr   playState_incrementPlayState
+        
 playState_playerControlsActiveTetrimino:
         jsr     shift_tetrimino
         jsr     rotate_tetrimino
-        jsr     drop_tetrimino
-        rts
-
-branchOnPlayStatePlayer2:
-        lda     playState
-        jsr     switch_s_plus_2a
-        .addr   playState_unassignOrientationId
-        .addr   playState_player2ControlsActiveTetrimino
-        .addr   playState_lockTetrimino
-        .addr   playState_checkForCompletedRows
-        .addr   playState_noop
-        .addr   playState_updateLinesAndStatistics
-        .addr   playState_bTypeGoalCheck
-        .addr   playState_receiveGarbage
-        .addr   playState_spawnNextTetrimino
-        .addr   playState_noop
-        .addr   playState_updateGameOverCurtain
-        .addr   playState_incrementPlayState
-playState_player2ControlsActiveTetrimino:
-        jsr     shift_tetrimino
-        jsr     rotate_tetrimino
-        jsr     drop_tetrimino
-        rts
+        jmp     drop_tetrimino
 
 gameMode_legalScreen:
         jsr     updateAudio2
@@ -1329,12 +1310,12 @@ savePlayer2State:
         lda     pendingGarbageInactivePlayer
         sta     pendingGarbage
         stx     pendingGarbageInactivePlayer
+notTypeB:
         rts
 
 initPlayfieldIfTypeB:
         lda     gameType
-        bne     initPlayfieldForTypeB
-        jmp     endTypeBInit
+        beq     notTypeB
 
 initPlayfieldForTypeB:
         lda     #$0C
@@ -1405,8 +1386,7 @@ copyPlayfieldToPlayer2:
 
 ; Player1 Blank Lines
         ldx     player1_startHeight
-        lda     typeBBlankInitCountByHeightTable,x
-        tay
+        ldy     typeBBlankInitCountByHeightTable,x
         lda     #tileEmpty
 
 typeBBlankInitPlayer1:
@@ -1417,8 +1397,7 @@ typeBBlankInitPlayer1:
 
 ; Player2 Blank Lines
         ldx     player2_startHeight
-        lda     typeBBlankInitCountByHeightTable,x
-        tay
+        ldy     typeBBlankInitCountByHeightTable,x
         lda     #tileEmpty
 typeBBlankInitPlayer2:
         sta     playfieldForSecondPlayer,y
@@ -1792,48 +1771,6 @@ orientationTable:
 
         ; Hidden orientation used during line clear animation and game over curtain
         .byte    0, tileHidden, 0, 0, tileHidden, 0, 0, tileHidden, 0, 0, tileHidden, 0 ; $13
-
-; unused sprite staging routine
-        lda     spriteIndexInOamContentLookup
-        asl     a
-        asl     a
-        sta     generalCounter
-        asl     a
-        clc
-        adc     generalCounter
-        tay
-        ldx     oamStagingLength
-        lda     #$04
-        sta     generalCounter2
-L8B9D:  lda     orientationTable,y
-        clc
-        asl     a
-        asl     a
-        asl     a
-        adc     spriteYOffset
-        sta     oamStaging,x
-        inx
-        iny
-        lda     orientationTable,y
-        sta     oamStaging,x
-        inx
-        iny
-        lda     #$02
-        sta     oamStaging,x
-        inx
-        lda     orientationTable,y
-        clc
-        asl     a
-        asl     a
-        asl     a
-        adc     spriteXOffset
-        sta     oamStaging,x
-        inx
-        iny
-        dec     generalCounter2
-        bne     L8B9D
-        stx     oamStagingLength
-        rts
 
 stageSpriteForNextPiece:
         lda     displayNextPiece
@@ -2714,8 +2651,7 @@ copyPlayfieldRowToVRAM:
         ldx     vramRow
         cpx     #$15
         bpl     @ret
-        lda     multBy10Table,x
-        tay
+        ldy     multBy10Table,x
         txa
         asl     a
         tax
@@ -3125,8 +3061,7 @@ playState_updateGameOverCurtain:
         bne     @ret
         ldx     curtainRow
         bmi     @incrementCurtainRow
-        lda     multBy10Table,x
-        tay
+        ldy     multBy10Table,x
         lda     #$00
         sta     generalCounter3
         lda     #hidden
@@ -3585,7 +3520,7 @@ doubleClear:
 ; single = (level + 1) * 40 = (level + 1) * 2 * 10 * 2
 ; BCD conversion makes this easier
 singleClear:
-		jsr     Mult2 ; (level + 1) * 2
+        jsr     Mult2 ; (level + 1) * 2
         ldx     generalCounter
         lda     byteToBcdTable,x
         sta     generalCounter
@@ -3644,13 +3579,12 @@ updatePlayfield:
         ldx     tetriminoY
         dex
         dex
-        txa
         bpl     @rowInRange
-        lda     #$00
+        ldx     #$00
 @rowInRange:
-        cmp     vramRow
+        cpx     vramRow
         bpl     @ret
-        sta     vramRow
+        stx     vramRow
 @ret:   rts
 
 gameModeState_handleGameOver:
@@ -3706,8 +3640,7 @@ gameModeState_handleGameOver:
 
 updateMusicSpeed:
         ldx     #$05
-        lda     multBy10Table,x
-        tay
+        ldy     #50 ; = multBy10Table[5]
         ldx     #$0A
 @checkForBlockInRow:
         lda     (playfieldAddr),y
@@ -4273,9 +4206,8 @@ adjustHighScores:
         lda     #$00
         jsr     copyHighScoreLevelToNextIndex
 @doneMovingOldScores:
-        ldx     highScoreEntryRawPos
-        lda     highScoreIndexToHighScoreNamesOffset,x
-        tax
+        ldy     highScoreEntryRawPos
+        ldx     highScoreIndexToHighScoreNamesOffset,y
         ldy     #$06
         lda     #$00
 @clearNameLetter:
@@ -4283,9 +4215,8 @@ adjustHighScores:
         inx
         dey
         bne     @clearNameLetter
-        ldx     highScoreEntryRawPos
-        lda     highScoreIndexToHighScoreScoresOffset,x
-        tax
+        ldy     highScoreEntryRawPos
+        ldx     highScoreIndexToHighScoreScoresOffset,y
         lda     player1_score+2
         sta     highScoreScoresA,x
         inx
