@@ -47,7 +47,7 @@ autorepeatX     := $0046
 startLevel      := $0047
 playState       := $0048
 vramRow         := $0049                        ; Next playfield row to copy. Set to $20 when playfield copy is complete
-completedRow    := $004A                        ; Row which has been cleared. 0 if none complete
+completedRow    := $004A                        ; Row which has been cleared. -1 if none complete
 autorepeatY     := $004E
 holdDownPoints  := $004F
 lines           := $0050
@@ -2708,6 +2708,7 @@ updateLineClearingAnimation:
 @whileCounter3LessThan4:
         ldx     generalCounter3
         lda     completedRow,x
+        cmp     #$FF ; change "not completed" flag to -1 so row 0 can be updated properly
         beq     @nextRow
         asl     a
         tay
@@ -3124,13 +3125,12 @@ playState_checkForCompletedRows:
 @yInRange:
         clc
         adc     lineIndex
-        sta     generalCounter2
-        asl     a
-        sta     generalCounter
+        sta     generalCounter2 ; multiply by 10, the row width
         asl     a
         asl     a
         clc
-        adc     generalCounter
+        adc     generalCounter2
+        asl     a
         sta     generalCounter
         tay
         ldx     #$0A
@@ -3148,6 +3148,7 @@ playState_checkForCompletedRows:
         lda     generalCounter2
         sta     completedRow,x
         ldy     generalCounter
+        beq     @atTopRow ; check for row 0 to fix top row bug
         dey
 @movePlayfieldDownOneRow:
         lda     (playfieldAddr),y
@@ -3159,20 +3160,20 @@ playState_checkForCompletedRows:
         dey
         cpy     #$FF
         bne     @movePlayfieldDownOneRow
+@atTopRow:
         lda     #tileEmpty
-        ldy     #$00
+        ldy     #$09
 @clearRowTopRow:
         sta     (playfieldAddr),y
-        iny
-        cpy     #$0A
-        bne     @clearRowTopRow
+        dey
+        bpl     @clearRowTopRow
         lda     #hidden
         sta     currentPiece
         jmp     @incrementLineIndex
 
 @rowNotComplete:
         ldx     lineIndex
-        lda     #$00
+        lda     #$FF ; change "not complete" flag to -1 so row 0 can be updated properly
         sta     completedRow,x
 @incrementLineIndex:
         inc     lineIndex

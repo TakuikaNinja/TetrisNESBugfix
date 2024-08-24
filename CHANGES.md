@@ -33,6 +33,7 @@
 - [x] Fix glitched frames on certain screen transitions.
 - [x] B-Type level bonus properly applies to level 10 and higher.
 - [x] Prevent Tetris animation from lingering past the demo sequence/resets.
+- [x] Fix the line clear processing for the topmost row.
 
 ## Modernised Quality of Life Mechanics
 - [x] Copyright/legal screen is always skippable using the start button. (similar to EYTZAG)
