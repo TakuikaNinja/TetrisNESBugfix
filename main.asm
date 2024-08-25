@@ -2333,16 +2333,12 @@ sprite55Penguin2:
         .byte   $00,$DD,$21,$00,$00,$DE,$21,$08
         .byte   $FF
 isPositionValid:
-        lda     tetriminoY
-        asl     a
-        sta     generalCounter
-        asl     a
-        asl     a
+        ldx     tetriminoY
+        lda     multBy10Table,x
         clc
-        adc     generalCounter
         adc     tetriminoX
         sta     generalCounter
-        lda     currentPiece
+        lda     currentPiece ; multiply by 12
         asl     a
         asl     a
         sta     generalCounter2
@@ -2361,13 +2357,12 @@ isPositionValid:
         adc     #$02
         cmp     #$16
         bcs     @invalid
-        lda     orientationTable,x
-        asl     a
-        sta     generalCounter4
+        lda     orientationTable,x ; multiply by 10
         asl     a
         asl     a
         clc
-        adc     generalCounter4
+        adc     orientationTable,x
+        asl     a
         clc
         adc     generalCounter
         sta     selectingLevelOrHeight
@@ -2623,10 +2618,13 @@ render_mode_play_and_demo:
 pieceToPpuStatAddr:
         .dbyt   $2186,$21C6,$2206,$2246
         .dbyt   $2286,$22C6,$2306
+        
+; full LUT for multiplying by 10, up to the largest valid value of 25*10 = 250
 multBy10Table:
-        .byte   $00,$0A,$14,$1E,$28,$32,$3C,$46
-        .byte   $50,$5A,$64,$6E,$78,$82,$8C,$96
-        .byte   $A0,$AA,$B4,$BE
+        .repeat 26, i
+        .byte i*10
+        .endrepeat
+        
 ; addresses
 vramPlayfieldRows:
         .word   $20C6,$20E6,$2106,$2126
@@ -2727,10 +2725,8 @@ updateLineClearingAnimation:
         lda     playfieldAddr+1
         cmp     #>playfield
         bne     @player2
-        lda     generalCounter
-        sec
-        sbc     #$02
-        sta     generalCounter
+        dec     generalCounter
+        dec     generalCounter
         jmp     @updateVRAM
 
 @player2:
@@ -3001,16 +2997,12 @@ playState_lockTetrimino:
         lda     vramRow
         cmp     #$20
         bcc     @ret
-        lda     tetriminoY
-        asl     a
-        sta     generalCounter
-        asl     a
-        asl     a
+        ldx     tetriminoY
+        lda     multBy10Table,x
         clc
-        adc     generalCounter
         adc     tetriminoX
         sta     generalCounter
-        lda     currentPiece
+        lda     currentPiece ; multiply by 12
         asl     a
         asl     a
         sta     generalCounter2
@@ -3023,7 +3015,7 @@ playState_lockTetrimino:
         sta     generalCounter3
 ; Copies a single square of the tetrimino to the playfield
 @lockSquare:
-        lda     orientationTable,x
+        lda     orientationTable,x ; multiply by 10
         asl     a
         sta     generalCounter4
         asl     a
@@ -3114,7 +3106,7 @@ playState_checkForCompletedRows:
         lda     vramRow
         cmp     #$20
         bpl     @updatePlayfieldComplete
-        jmp     @ret
+        rts
 
 @updatePlayfieldComplete:
         lda     tetriminoY
@@ -3125,12 +3117,9 @@ playState_checkForCompletedRows:
 @yInRange:
         clc
         adc     lineIndex
-        sta     generalCounter2 ; multiply by 10, the row width
-        asl     a
-        asl     a
-        clc
-        adc     generalCounter2
-        asl     a
+        sta     generalCounter2
+        tax
+        lda     multBy10Table,x
         sta     generalCounter
         tay
         ldx     #$0A
@@ -3169,7 +3158,7 @@ playState_checkForCompletedRows:
         bpl     @clearRowTopRow
         lda     #hidden
         sta     currentPiece
-        jmp     @incrementLineIndex
+        bne     @incrementLineIndex ; [unconditional branch]
 
 @rowNotComplete:
         ldx     lineIndex
@@ -3853,12 +3842,8 @@ endingAnimationB:
         lda     byteToBcdTable,x
         sta     levelNumber
         stx     bTypeLevelBonus
-        ; multiply start height by 10 (%1010)
-        lda     player1_startHeight ; '1'
-        asl     a ; '0'
-        asl     a
-        adc     player1_startHeight ; '1'
-        asl     a ; '0'
+        ldx     player1_startHeight
+        lda     multBy10Table,x
         sta     bTypeHeightBonus
         jsr     updateAudioWaitForNmiAndDisablePpuRendering
         jsr     disableNmi
