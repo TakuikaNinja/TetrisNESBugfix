@@ -1027,7 +1027,8 @@ gameMode_levelMenu_handleLevelHeightNavigation:
         adc     #$50
         sta     spriteYOffset
 @stageHeightSelectCursor:
-        jsr     loadSpriteIntoOamStaging
+        jmp     loadSpriteIntoOamStaging
+        
 @ret:   rts
 .endif
 
@@ -1141,6 +1142,7 @@ gameModeState_initGameBackground:
 
 gameModeState_initGameBackground_finish:
         jsr     waitForVBlankAndEnableNmi
+        jsr     updatePaletteForLevel ; update initial level palettes during vblank
         jsr     updateAudioWaitForNmiAndResetOamStaging
         jsr     updateAudioWaitForNmiAndEnablePpuRendering
         jsr     updateAudioWaitForNmiAndResetOamStaging
@@ -1151,8 +1153,11 @@ gameModeState_initGameBackground_finish:
         sta     player1_levelNumber
         lda     player2_startLevel
         sta     player2_levelNumber
+        lda     #$00
         sta     player1_completedLines ; clear completedLines properly
         sta     player2_completedLines ; (this prevents the tetris animation from occuring when starting a game)
+        sta     player1_holdDownPoints ; clear holdDownPoints properly
+        sta     player2_holdDownPoints ; (this prevents the soft drop/pushdown duration from being carried over)
         inc     gameModeState
         rts
 
@@ -1556,7 +1561,8 @@ drop_tetrimino:
         sta     tetriminoY
         lda     #$02
         sta     playState
-        jsr     updatePlayfield
+        jmp     updatePlayfield
+        
 @ret:   rts
 
 @lookupDropSpeed:
@@ -1790,7 +1796,7 @@ stageSpriteForNextPiece:
 orientationToSpriteTable:
         .byte   $00,$00,$06,$00,$00,$00,$00,$09
         .byte   $08,$00,$0B,$07,$00,$00,$0A,$00
-        .byte   $00,$00,$0C
+        .byte   $00,$00,$0C,$02 ; add blank sprite entry for hidden piece
 ; Same as orientationToSpriteTable except sprites have different offsets
 unreferenced_orientationToSpriteTable:
         .byte   $00,$00,$0F,$00,$00,$00,$00,$12
@@ -2824,7 +2830,6 @@ playState_spawnNextTetrimino:
         cmp     #$01
         beq     @spawnPiece
         lda     twoPlayerPieceDelayCounter
-        cmp     #$00
         bne     @twoPlayerWaiting
         inc     twoPlayerPieceDelayCounter
         lda     activePlayer
@@ -2885,10 +2890,6 @@ chooseNextTetrimino:
         rts
 
 pickRandomTetrimino:
-        jsr     @realStart
-        rts
-
-@realStart:
 .if NWC = 1
         ldx     #rng_seed
         ldy     #$02
@@ -2990,8 +2991,7 @@ playState_lockTetrimino:
         sta     playState
         lda     #$F0
         sta     curtainRow
-        jsr     updateAudio2
-        rts
+        jmp     updateAudio2
 
 @notGameOver:
         lda     vramRow
@@ -3089,6 +3089,7 @@ playState_updateGameOverCurtain:
         bcc     @checkForStartButton
 ;       lda     #ENDING_SLEEP_TIME_1 ; skip forced wait (similar to NYIPEX)
 ;       jsr     sleep_for_a_vblanks
+        jsr     playState_unassignOrientationId ; hide current & next pieces
         jsr     endingAnimation
         jmp     @exitGame
 
@@ -3235,8 +3236,8 @@ playState_receiveGarbage:
         lda     #$00
         sta     pendingGarbage
         sta     vramRow
-@ret:  inc     playState
-@delay:  rts
+@ret:   inc     playState
+@delay: rts
 
 garbageLines:
         .byte   $00,$00,$01,$02,$04
@@ -3581,7 +3582,6 @@ gameModeState_handleGameOver:
         lda     #$05
         sta     generalCounter2
         lda     player1_playState
-        cmp     #$00
         beq     @gameOver
         lda     numberOfPlayers
         cmp     #$01
@@ -3589,7 +3589,6 @@ gameModeState_handleGameOver:
         lda     #$04
         sta     generalCounter2
         lda     player2_playState
-        cmp     #$00
         bne     @ret
 @gameOver:
         lda     numberOfPlayers
@@ -3658,15 +3657,14 @@ updateMusicSpeed:
         adc     #$04
         tax
         lda     musicSelectionTable,x
-        jsr     setMusicTrack
+        jmp     setMusicTrack
 @ret:   rts
 
 pollControllerButtons:
         lda     gameMode
         cmp     #$05
         beq     @demoGameMode
-        jsr     pollController
-        rts
+        jmp     pollController
 
 @demoGameMode:
         lda     $D0
@@ -3811,9 +3809,7 @@ gameModeState_vblankThenRunState2:
 playState_unassignOrientationId:
         lda     #hidden
         sta     currentPiece
-        rts
-
-        inc     gameModeState
+        sta     nextPiece ; hide next piece as well
         rts
 
 playState_incrementPlayState:
@@ -4025,7 +4021,7 @@ showHighScores:
         lda     numberOfPlayers
         cmp     #$01
         beq     showHighScores_real
-        jmp     showHighScores_ret
+        rts
 
 showHighScores_real:
         jsr     bulkCopyToPpu
@@ -4096,12 +4092,11 @@ showHighScores_real:
         inc     generalCounter2
         lda     generalCounter2
         cmp     #$03
-        beq     showHighScores_ret
+        beq     @ret
         cmp     #$07
-        beq     showHighScores_ret
+        beq     @ret
         jmp     @copyEntry
-
-showHighScores_ret:  rts
+@ret:   rts
 
 highScorePpuAddrTable:
         .dbyt   $2289,$22C9,$2309
@@ -4444,8 +4439,7 @@ highScoreEntryScreen:
         jsr     updateAudioWaitForNmiAndResetOamStaging
         jmp     @renderFrame
 
-@ret:   jsr     updateAudioWaitForNmiAndResetOamStaging
-        rts
+@ret:   jmp     updateAudioWaitForNmiAndResetOamStaging
 
 highScorePosToY:
         .byte   $9F,$AF,$BF
@@ -4572,8 +4566,7 @@ playState_bTypeGoalCheck:
         ldx     #$00
 @copySuccessGraphic:
         lda     typebSuccessGraphic,x
-        cmp     #$80
-        beq     @graphicCopied
+        bmi     @graphicCopied ; terminator sets negative flag
         sta     (playfieldAddr),y
         inx
         iny
@@ -4582,17 +4575,18 @@ playState_bTypeGoalCheck:
 @graphicCopied:
         lda     #$00
         sta     player1_vramRow
-        jsr     sleep_for_14_vblanks
+        lda     #$14
+        jsr     sleep_for_a_vblanks
         lda     #$00
         sta     renderMode
         lda     #$80
         jsr     sleep_for_a_vblanks
+        jsr     playState_unassignOrientationId ; hide current & next pieces
         jsr     endingAnimation
         lda     #$00
         sta     playState
         inc     gameModeState
-        jsr     updateAudioWaitForNmiAndResetOamStaging
-        rts
+        jmp     updateAudioWaitForNmiAndResetOamStaging
 
 playState_bTypeGoalCheck_ret:
         inc     playState
@@ -4603,13 +4597,6 @@ typebSuccessGraphic:
         .byte   $39,$3A,$3B,$1C,$1E,$0C,$0C,$0E
         .byte   $1C,$1C,$28,$3C,$3D,$3E,$3E,$3E
         .byte   $3E,$3E,$3E,$3E,$3E,$3F,$80
-sleep_for_14_vblanks:
-        lda     #$14
-        sta     sleepCounter
-@loop:  jsr     updateAudioWaitForNmiAndResetOamStaging
-        lda     sleepCounter
-        bne     @loop
-        rts
 
 sleep_for_a_vblanks:
         sta     sleepCounter
@@ -4661,7 +4648,7 @@ ending_initTypeBVars:
         cmp     #$09
         bne     @notLevel9
         ldx     player1_startHeight
-        inx ; +1 (unconditional carry)  to skip an unused level 9 ending
+        inx ; +1 to skip an unused level 9 ending
         stx     ending
         jsr     ending_typeBConcertPatchToPpuForHeight
         lda     #$00
@@ -4768,12 +4755,8 @@ render_ending:
 ending_typeB:
         lda     levelNumber
         cmp     #$09
-        beq     @typeBConcert
+        beq     ending_typeBConcert
         jmp     ending_typeBCathedral
-
-@typeBConcert:
-        jsr     ending_typeBConcert
-        rts
 
 ending_typeBConcert:
         lda     player1_startHeight
@@ -4930,8 +4913,7 @@ ending_typeBConcert:
         adc     #$16
         sta     spriteIndexInOamContentLookup
         jsr     loadSpriteIntoOamStaging
-        jsr     LA6BC
-        rts
+        jmp     LA6BC
 
 ending_typeBCathedral:
         jsr     ending_typeBCathedralSetSprite
@@ -5263,7 +5245,6 @@ ending_selected:
 
 ending_typeA:
         lda     ending_customVars
-        cmp     #$00
         beq     LAA10
         sta     spriteYOffset
         lda     #$58
@@ -5340,8 +5321,7 @@ updateAudioWaitForNmiAndResetOamStaging:
         lda     #$FF
         ldx     #>oamStaging
         ldy     #>oamStaging
-        jsr     memset_page
-        rts
+        jmp     memset_page
 
 updateAudioAndWaitForNmi:
         jsr     updateAudio_jmp
@@ -5387,8 +5367,7 @@ _updatePpuCtrl:
 
 LAA82:  ldx     #$FF
         ldy     #$00
-        jsr     memset_ppu_page_and_more
-        rts
+        jmp     memset_ppu_page_and_more
 
 copyCurrentScrollAndCtrlToPPU:
         lda     #$00
@@ -6075,8 +6054,7 @@ LE1D8:  lda     #$0F
         sta     SND_CHN
         lda     #$55
         sta     soundRngSeed
-        jsr     soundEffectSlot2_makesNoSound
-        rts
+        jmp     soundEffectSlot2_makesNoSound
 
 initAudioAndMarkInited:
         inc     audioInitialized
@@ -6580,10 +6558,9 @@ updateMusic_noSoundJmp:
 updateMusic:
         lda     musicTrack
         tay
+        beq     @checkIfAlreadyPlaying
         cmp     #$FF
         beq     updateMusic_noSoundJmp
-        cmp     #$00
-        beq     @checkIfAlreadyPlaying
         sta     currentAudioSlot
         sta     musicTrack_dec
         dec     musicTrack_dec
@@ -6906,7 +6883,7 @@ updateMusicFrame_progLoadNextScript:
         jmp     updateMusicFrame_progLoadRoutine
 
 updateMusicFrame_progEnd:
-        jsr     soundEffectSlot2_makesNoSound
+        jmp     soundEffectSlot2_makesNoSound
 updateMusicFrame_ret:
         rts
 
@@ -6934,7 +6911,6 @@ updateMusicFrame_progLoadRoutine:
         iny
         lda     (musicChanTmpAddr),y
         sta     musicDataChanPtrDeref+1,x
-        cmp     #$00
         beq     updateMusicFrame_progEnd
         cmp     #$FF
         beq     updateMusicFrame_progLoadNextScript
