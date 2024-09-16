@@ -3099,6 +3099,7 @@ playState_updateGameOverCurtain:
 ;       jsr     sleep_for_a_vblanks
         jsr     playState_unassignOrientationId ; hide current & next pieces
         jsr     endingAnimation
+        jsr     updateAudioWaitForNmiAndDisablePpuRendering
         jmp     @exitGame
 
 @checkForStartButton:
@@ -4594,7 +4595,7 @@ playState_bTypeGoalCheck:
         lda     #$00
         sta     playState
         inc     gameModeState
-        jmp     updateAudioWaitForNmiAndResetOamStaging
+        jmp     updateAudioWaitForNmiAndDisablePpuRendering
 
 playState_bTypeGoalCheck_ret:
         inc     playState
