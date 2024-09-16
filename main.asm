@@ -858,12 +858,18 @@ gameMode_levelMenu_processPlayer1Navigation:
 @checkBPressed:
         lda     newlyPressedButtons_player1
         cmp     #BUTTON_B
-        bne     @chooseRandomHole_player1
+        bne     @check2Players
         lda     #$02
         sta     soundEffectSlot1Init
         dec     gameMode
         rts
 
+@check2Players:
+        lda     numberOfPlayers
+        cmp     #$02
+        bne     @not2Players
+
+; only run this residual code if in 2 player mode (avoids redundant PRNG calls)
 @chooseRandomHole_player1:
         ldx     #rng_seed
         ldy     #$02
@@ -871,7 +877,7 @@ gameMode_levelMenu_processPlayer1Navigation:
         lda     rng_seed
         and     #$0F
         cmp     #$0A
-        bpl     @chooseRandomHole_player1
+        bcs     @chooseRandomHole_player1 ; until output is in 0~9 range
         sta     player1_garbageHole
 @chooseRandomHole_player2:
         ldx     #rng_seed
@@ -880,8 +886,10 @@ gameMode_levelMenu_processPlayer1Navigation:
         lda     rng_seed
         and     #$0F
         cmp     #$0A
-        bpl     @chooseRandomHole_player2
+        bcs     @chooseRandomHole_player2 ; until output is in 0~9 range
         sta     player2_garbageHole
+        
+@not2Players:
         jsr     updateAudioWaitForNmiAndResetOamStaging
         jmp     gameMode_levelMenu_processPlayer1Navigation
 

@@ -35,6 +35,7 @@
 - [x] Prevent Tetris animation from lingering past the demo sequence/resets.
 - [x] Prevent the soft drop/pushdown duration from being carried over via a soft reset.
 - [x] Fix the line clear processing for the topmost row.
+- [x] Prevent extra PRNG calls in the level select screen. (meant for unused 2 player mode functionality)
 
 ## Modernised Quality of Life Mechanics
 - [x] Copyright/legal screen is always skippable using the start button. (similar to EYTZAG)
