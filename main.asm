@@ -4550,7 +4550,7 @@ gameModeState_startButtonHandling:
 .endif
         lda     #$00
         sta     musicStagingNoiseHi
-        sta     player1_vramRow
+;       sta     player1_vramRow ; this causes momentary line clear oddities
         lda     #$03
         sta     renderMode
 @ret:   inc     gameModeState
