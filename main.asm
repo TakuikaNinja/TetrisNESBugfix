@@ -2648,7 +2648,6 @@ vramPlayfieldRows:
         .word   $22C6,$22E6,$2306,$2326
 twoDigsToPPU:
         sta     generalCounter
-        and     #$F0
         lsr     a
         lsr     a
         lsr     a
@@ -7131,7 +7130,6 @@ updateMusicFrame_updateChannel:
         cmp     #$10
         beq     @setMmio
         and     #$F0
-        ora     #$00
         bne     @setMmio
 @useDirectVolume:
         lda     AUDIOTMP1
