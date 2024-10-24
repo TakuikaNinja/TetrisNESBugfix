@@ -1147,21 +1147,20 @@ gameModeState_initGameBackground:
         lda     startHeight
         and     #$0F
         sta     PPUDATA
-        jmp     gameModeState_initGameBackground_finish
 
 gameModeState_initGameBackground_finish:
+        lda     player1_startLevel ; set starting level numbers first...
+        sta     player1_levelNumber
+        lda     player2_startLevel
+        sta     player2_levelNumber
         jsr     waitForVBlankAndEnableNmi
-        jsr     updatePaletteForLevel ; update initial level palettes during vblank
+        jsr     updatePaletteForLevel ; so the initial level palettes can be updated during vblank
         jsr     updateAudioWaitForNmiAndResetOamStaging
         jsr     updateAudioWaitForNmiAndEnablePpuRendering
         jsr     updateAudioWaitForNmiAndResetOamStaging
         lda     #$01
         sta     player1_playState
         sta     player2_playState
-        lda     player1_startLevel
-        sta     player1_levelNumber
-        lda     player2_startLevel
-        sta     player2_levelNumber
         lda     #$00
         sta     player1_completedLines ; clear completedLines properly
         sta     player2_completedLines ; (this prevents the tetris animation from occuring when starting a game)
