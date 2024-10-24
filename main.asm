@@ -245,7 +245,9 @@ initMagic       := $0750                        ; Initialized to a hard-coded nu
 initRam:ldx     #$00
         jmp     initRamContinued
 
-nmi:    pha
+nmi:    bit     verticalBlankingInterval
+        bpl     irq ; exit if NMI flag not set yet (lag frame handling)
+        pha
         txa
         pha
         tya
@@ -273,14 +275,13 @@ nmi:    pha
         jsr     generateNextPseudorandomNumber
 .endif
         jsr     copyCurrentScrollAndCtrlToPPU ; always set PPUSCROLL/PPUCTRL nametable selection bits
-        lda     #$01
-        sta     verticalBlankingInterval
         jsr     pollControllerButtons
         pla
         tay
         pla
         tax
         pla
+        asl     verticalBlankingInterval ; clear NMI flag
 irq:    rti
 
 render: lda     renderMode
@@ -363,7 +364,7 @@ initRamContinued:
 .if NWC = 1
         sta     currentPpuMask
 .endif
-        jsr     LE006
+        jsr     LE1D8
         jsr     updateAudio2
         lda     #$C0
         sta     stack
@@ -5310,18 +5311,17 @@ rocketToXOffsetTable:
 LAA2A:  .byte   $BF,$BF,$BF,$BF,$C7
 ; canon is waitForVerticalBlankingInterval
 updateAudioWaitForNmiAndResetOamStaging:
-        jsr     updateAudio_jmp
-        lda     #$00
-        sta     verticalBlankingInterval
-        nop
 .if DEBUG = 1
         lda     currentPpuMask ; enable score calculation profiling while debugging
         ora     #%10000000 ; set blue emphasis to show a raster bar
         sta     PPUMASK
 .endif
+        jsr     updateAudio
+        sec
+        ror     verticalBlankingInterval
 @checkForNmi:
-        lda     verticalBlankingInterval
-        beq     @checkForNmi
+        bit     verticalBlankingInterval
+        bmi     @checkForNmi
 .if DEBUG = 1
         lda     currentPpuMask ; enable score calculation profiling while debugging
         sta     PPUMASK ; restore PPUMASK state
@@ -5332,13 +5332,12 @@ updateAudioWaitForNmiAndResetOamStaging:
         jmp     memset_page
 
 updateAudioAndWaitForNmi:
-        jsr     updateAudio_jmp
-        lda     #$00
-        sta     verticalBlankingInterval
-        nop
+        jsr     updateAudio
+        sec
+        ror     verticalBlankingInterval
 @checkForNmi:
-        lda     verticalBlankingInterval
-        beq     @checkForNmi
+        bit     verticalBlankingInterval
+        bmi     @checkForNmi
         rts
 
 updateAudioWaitForNmiAndDisablePpuRendering:
@@ -5359,9 +5358,8 @@ updateAudioWaitForNmiAndEnablePpuRendering:
         ora     #$1E
         bne     _updatePpuMask
 waitForVBlankAndEnableNmi:
-        lda     PPUSTATUS
-        and     #$80
-        bne     waitForVBlankAndEnableNmi
+        bit     PPUSTATUS
+        bpl     waitForVBlankAndEnableNmi
         lda     currentPpuCtrl
         ora     #$80
         bne     _updatePpuCtrl
@@ -5802,14 +5800,7 @@ unreferenced_data1:
 .include "data/demo_data.asm"
 
 ; canon is updateAudio
-updateAudio_jmp:
-        jmp     updateAudio
-
-; canon is updateAudio
-updateAudio2:
-        jmp     soundEffectSlot2_makesNoSound
-
-LE006:  jmp     LE1D8
+updateAudio2 = soundEffectSlot2_makesNoSound
 
 ; Referenced via updateSoundEffectSlotShared
 soundEffectSlot0Init_table:
@@ -5958,6 +5949,9 @@ unreferenced_data3:
         .byte   $00,$00,$00,$00,$00,$00,$00,$00
         .byte   $00,$00,$00,$00,$00,$00,$00,$00
 .endif
+; must be aligned to a page so the high bytes match
+.align 256
+; unreferenced?
         .byte   $03,$7F,$0F,$C0
 ; Referenced by initSoundEffectShared
 soundEffectSlot0_gameOverCurtainInitData:
