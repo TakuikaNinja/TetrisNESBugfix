@@ -2353,12 +2353,10 @@ isPositionValid:
         adc     tetriminoX
         sta     generalCounter
         lda     currentPiece ; multiply by 12
-        asl     a
-        asl     a
-        sta     generalCounter2
+        tax
         asl     a
         clc
-        adc     generalCounter2
+        adc     multBy10Table,x
         tax
         ldy     #$00
         lda     #$04
@@ -2371,7 +2369,7 @@ isPositionValid:
         adc     #$02
         cmp     #$16
         bcs     @invalid
-        lda     orientationTable,x ; multiply by 10
+        lda     orientationTable,x ; signed multiply by 10
         asl     a
         asl     a
         clc
@@ -3010,19 +3008,17 @@ playState_lockTetrimino:
         adc     tetriminoX
         sta     generalCounter
         lda     currentPiece ; multiply by 12
-        asl     a
-        asl     a
-        sta     generalCounter2
+        tax
         asl     a
         clc
-        adc     generalCounter2
+        adc     multBy10Table,x
         tax
         ldy     #$00
         lda     #$04
         sta     generalCounter3
 ; Copies a single square of the tetrimino to the playfield
 @lockSquare:
-        lda     orientationTable,x ; multiply by 10
+        lda     orientationTable,x ; signed multiply by 10
         asl     a
         sta     generalCounter4
         asl     a
