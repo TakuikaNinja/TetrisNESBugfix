@@ -20,6 +20,7 @@
 - [x] Fix controller polling code to avoid variable conflicts. (avoids game crash)
 - [x] Fix gameModeState check to prevent unwanted behaviour caused by left+down+right inputs.
 - [x] Nullify left+right inputs when shifting pieces.
+- [x] Allow the softdrop/pushdown to resume after releasing held left or right inputs. (pushdown points are reset)
 - [x] Fix and optimise the palette update routine to prevent glitched colour palettes from being used.
 - [x] Change level number handling to use base 100 encoding instead of binary. (cap at 99)
 - [x] Change line number handling to use base 100 encoding instead of base 10. (cap clears at 999)

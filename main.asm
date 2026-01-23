@@ -1532,7 +1532,7 @@ drop_tetrimino:
         lda     heldButtons
         and     #BUTTON_LEFT+BUTTON_RIGHT
         bne     @lookupDropSpeed
-        lda     newlyPressedButtons
+        lda     heldButtons
         and     #BUTTON_DPAD
         cmp     #BUTTON_DOWN
         bne     @lookupDropSpeed
@@ -1608,9 +1608,9 @@ unreferenced_framesPerDropTable:
 shift_tetrimino:
         lda     tetriminoX
         sta     originalY
-        lda     heldButtons
-        and     #BUTTON_DOWN
-        bne     @ret
+;        lda     heldButtons
+;        and     #BUTTON_DOWN
+;        bne     @ret
         lda     newlyPressedButtons
         and     #BUTTON_LEFT+BUTTON_RIGHT
         bne     @resetAutorepeatX
