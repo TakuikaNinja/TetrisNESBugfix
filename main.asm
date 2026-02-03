@@ -171,7 +171,8 @@ currentPpuMask  := $00FE
 currentPpuCtrl  := $00FF
 stack           := $0100
 oamStaging      := $0200                        ; format: https://wiki.nesdev.com/w/index.php/PPU_programmer_reference#OAM
-statsByType     := $03F0
+statsByType_Lo     := $03F0
+statsByType_Hi     := statsByType_Lo+7
 playfield       := $0400
 playfieldForSecondPlayer:= $0500
 musicStagingSq1Lo:= $0680
@@ -1185,7 +1186,7 @@ gameModeState_initGameState:
         lda     #$00
 ; statsByType
 @initStatsByType:
-        sta     statsByType-1,x
+        sta     statsByType_Lo-1,x
         dex
         bne     @initStatsByType
         lda     #$05
@@ -2581,16 +2582,16 @@ render_mode_play_and_demo:
         lda     #$00
         sta     tmpCurrentPiece
 @renderPieceStat:
-        lda     tmpCurrentPiece
-        asl     a
-        tax
-        lda     pieceToPpuStatAddr,x
+        ldx     tmpCurrentPiece
+        lda     pieceToPpuStatAddr_Hi,x
         sta     PPUADDR
-        lda     pieceToPpuStatAddr+1,x
+        lda     pieceToPpuStatAddr_Lo,x
         sta     PPUADDR
-        lda     statsByType+1,x
+        ldy     statsByType_Hi,x
+        lda     byteToBcdTable,y
         sta     PPUDATA
-        lda     statsByType,x
+        ldy     statsByType_Lo,x
+        lda     byteToBcdTable,y
         jsr     twoDigsToPPU
         inc     tmpCurrentPiece
         lda     tmpCurrentPiece
@@ -2627,9 +2628,12 @@ render_mode_play_and_demo:
         sty     PPUSCROLL
         rts
 
-pieceToPpuStatAddr:
-        .dbyt   $2186,$21C6,$2206,$2246
-        .dbyt   $2286,$22C6,$2306
+pieceToPpuStatAddr_Hi:
+        .hibytes   $2186,$21C6,$2206,$2246
+        .hibytes   $2286,$22C6,$2306
+pieceToPpuStatAddr_Lo:
+        .lobytes   $2186,$21C6,$2206,$2246
+        .lobytes   $2286,$22C6,$2306
         
 ; full LUT for multiplying by 10, up to the largest valid value of 25*10 = 250
 multBy10Table:
@@ -2638,12 +2642,19 @@ multBy10Table:
         .endrepeat
         
 ; addresses
-vramPlayfieldRows:
-        .word   $20C6,$20E6,$2106,$2126
-        .word   $2146,$2166,$2186,$21A6
-        .word   $21C6,$21E6,$2206,$2226
-        .word   $2246,$2266,$2286,$22A6
-        .word   $22C6,$22E6,$2306,$2326
+vramPlayfieldRows_Hi:
+        .hibytes   $20C6,$20E6,$2106,$2126
+        .hibytes   $2146,$2166,$2186,$21A6
+        .hibytes   $21C6,$21E6,$2206,$2226
+        .hibytes   $2246,$2266,$2286,$22A6
+        .hibytes   $22C6,$22E6,$2306,$2326
+vramPlayfieldRows_Lo:
+        .lobytes   $20C6,$20E6,$2106,$2126
+        .lobytes   $2146,$2166,$2186,$21A6
+        .lobytes   $21C6,$21E6,$2206,$2226
+        .lobytes   $2246,$2266,$2286,$22A6
+        .lobytes   $22C6,$22E6,$2306,$2326
+
 twoDigsToPPU:
         sta     generalCounter
         lsr     a
@@ -2661,34 +2672,29 @@ copyPlayfieldRowToVRAM:
         cpx     #$15
         bpl     @ret
         ldy     multBy10Table,x
-        txa
-        asl     a
-        tax
-        inx
-        lda     vramPlayfieldRows,x
+        lda     vramPlayfieldRows_Hi,x
         sta     PPUADDR
-        dex
         lda     numberOfPlayers
         cmp     #$01
         beq     @onePlayer
         lda     playfieldAddr+1
         cmp     #$05
         beq     @playerTwo
-        lda     vramPlayfieldRows,x
+        lda     vramPlayfieldRows_Lo,x
         sec
         sbc     #$02
         sta     PPUADDR
         jmp     @copyRow
 
 @playerTwo:
-        lda     vramPlayfieldRows,x
+        lda     vramPlayfieldRows_Lo,x
         clc
         adc     #$0C
         sta     PPUADDR
         jmp     @copyRow
 
 @onePlayer:
-        lda     vramPlayfieldRows,x
+        lda     vramPlayfieldRows_Lo,x
         clc
         adc     #$06
         sta     PPUADDR
@@ -2716,12 +2722,10 @@ updateLineClearingAnimation:
         sta     generalCounter3
 @whileCounter3LessThan4:
         ldx     generalCounter3
-        lda     completedRow,x
-        cmp     #$FF ; change "not completed" flag to -1 so row 0 can be updated properly
+        ldy     completedRow,x
+        cpy     #$FF ; change "not completed" flag to -1 so row 0 can be updated properly
         beq     @nextRow
-        asl     a
-        tay
-        lda     vramPlayfieldRows,y
+        lda     vramPlayfieldRows_Lo,y
         sta     generalCounter
         lda     numberOfPlayers
         cmp     #$01
@@ -2746,8 +2750,7 @@ updateLineClearingAnimation:
         adc     #$0C
         sta     generalCounter
 @updateVRAM:
-        iny
-        lda     vramPlayfieldRows,y
+        lda     vramPlayfieldRows_Hi,y
         sta     generalCounter2
         sta     PPUADDR
         ldx     rowY
@@ -2956,32 +2959,24 @@ spawnOrientationFromOrientation:
         .byte   iHoriz, iHoriz
 
 incrementPieceStat:
-        tax
-        lda     tetriminoTypeFromOrientation,x
-        asl     a
-        tax
-        lda     statsByType,x
-        clc
-        adc     #$01
-        sta     generalCounter
-        and     #$0F
-        cmp     #$0A
+        tay
+        ldx     tetriminoTypeFromOrientation,y
+        lda     #9 ; cap at 999
+        cmp     statsByType_Hi,x
+        bne     :+
+        lda     #99
+        cmp     statsByType_Lo,x
+        beq     L9996
+:
+        inc     statsByType_Lo,x
+        lda     statsByType_Lo,x
+        cmp     #100
         bcc     L9996
-        lda     generalCounter
-        clc
-        adc     #$06
-        sta     generalCounter
-        cmp     #$A0
-        bcc     L9996
-        clc
-        adc     #$60
-        sta     generalCounter
-        lda     statsByType+1,x
-        clc
-        adc     #$01
-        sta     statsByType+1,x
-L9996:  lda     generalCounter
-        sta     statsByType,x
+        lda     #0
+        sta     statsByType_Lo,x
+        inc     statsByType_Hi,x
+        
+L9996:
         lda     outOfDateRenderFlags
         ora     #RENDER_STATS
         sta     outOfDateRenderFlags

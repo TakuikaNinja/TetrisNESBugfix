@@ -24,6 +24,7 @@
 - [x] Fix and optimise the palette update routine to prevent glitched colour palettes from being used.
 - [x] Change level number handling to use base 100 encoding instead of binary. (cap at 99)
 - [x] Change line number handling to use base 100 encoding instead of base 10. (cap clears at 999)
+- [x] Change piece spawn statistics to use base 100 encoding. (cap pieces at 999 each)
 - [x] Fix the level transition check. (e.g. level 18 start transitions at 190 lines instead of 130)
 - [x] Change score handling to use base 100 encoding instead of base 10. (avoids game crash)
 - [x] Check for the score cap before adding any points. (avoids game crash)
